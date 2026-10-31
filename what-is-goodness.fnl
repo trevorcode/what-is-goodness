@@ -9,6 +9,9 @@
 
 (var current-scene nil)
 
+(fn round [x]
+  (math.floor (+ x 0.5)))
+
 (local scenes
   (do
     (var scenes [])
@@ -37,6 +40,63 @@
     {: push-scene! : pop-scene! : set-scene!
      : swap-root-scene! : run-scenes!}))
 
+(local player-module
+       (do
+         (local jump-force -4)
+         (local ground-y 110)
+         (local speed 1.5)
+         (local gravity 0.2)
+
+         (fn move-player-x! [player pos?]
+           (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
+             (tset player :x new-x)))
+
+         (fn jump! [player]
+           (when player.grounded? 
+             (tset player :grounded? false)
+             (tset player :y (- player.y 1))
+             (tset player :vy jump-force)))
+
+         (fn update-player! [player pos?]
+           (when (< player.y ground-y)
+             (set player.vy (+ player.vy gravity)))
+
+           (when (<= ground-y player.y)
+             (set player.grounded? true)
+             (set player.y ground-y)
+             (set player.vy 0))
+
+           (set player.y (+ player.vy player.y)))
+
+         (fn render-player! [player]
+           (rect (round player.x) (round player.y) 16 16 12))
+
+         (fn make-player []
+           {:x 30 :y 0 :hp 3 :vx 0 :vy 0
+            :grounded? false})
+
+         {: make-player : update-player! : move-player-x!
+          : jump! : render-player!}))
+
+(fn make-boss-scene []
+  (local player (player-module.make-player))
+
+  {:input (fn []
+            (when (btn 0)
+              (player-module.jump! player))
+            (when (btn 3)
+              (player-module.move-player-x! player true))
+            (when (btn 2)
+              (player-module.move-player-x! player false))
+            )
+   :update (fn []
+             (player-module.update-player! player)
+             )
+   :render (fn []
+             (cls 8)
+             (player-module.render-player! player)
+             (print "Hello world" 20 20 8 false 2))})
+
 (local main-menu
        {:input (fn [] true)
         :update (fn [] true)
@@ -44,7 +104,7 @@
                   (cls 1)
                   (print "Hello world" 20 20 8 false 2))})
 
-(scenes.push-scene! main-menu)
+(scenes.push-scene! (make-boss-scene))
 
 (fn _G.TIC []
   (scenes.run-scenes!))
