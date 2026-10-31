@@ -40,12 +40,43 @@
     {: push-scene! : pop-scene! : set-scene!
      : swap-root-scene! : run-scenes!}))
 
+;; "frames, width height, frame-duration in number of frames, loop"
+(fn make-animation [frames w h frame-duration loop?] 
+  [frames w h frame-duration loop?])
+
+(fn make-animator [init-animation]
+  {:frame 0
+   :frame-timer 0
+   :animation init-animation
+   :finished? false})
+
+(fn set-animation! [animator animation]
+  (doto animator
+    (tset :frame 0)
+    (tset :frame-timer 0)
+    (tset :animation animation)
+    (tset :finished? false)))
+
+(fn update-animation! [animator]
+  (when (not animator.finished?)
+    (let [[frames _ _ frame-duration loop] animator.animation]
+      (when (<= frame-duration animator.frame-timer)
+        (do
+          (set animator.frame-timer 0)
+          (if (and (not loop) (= (+ animator.frame 1) (length frames)))
+              (set animator.finished? true)
+              (set animator.frame (% (+ animator.frame 1) (length frames))))))
+
+      (set animator.frame-timer (+ 1 animator.frame-timer))
+      animator)))
+
 (local player-module
        (do
          (local jump-force -4)
          (local ground-y 110)
          (local speed 1.5)
          (local gravity 0.2)
+         (local run-animation (make-animation [1 3] 2 2 20 true))
 
          (fn move-player-x! [player pos?]
            (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
@@ -57,6 +88,10 @@
              (tset player :y (- player.y 1))
              (tset player :vy jump-force)))
 
+         (fn attack [player]
+
+           )
+
          (fn update-player! [player pos?]
            (when (< player.y ground-y)
              (set player.vy (+ player.vy gravity)))
@@ -66,20 +101,33 @@
              (set player.y ground-y)
              (set player.vy 0))
 
+           (update-animation! player.animator)
            (set player.y (+ player.vy player.y)))
 
          (fn render-player! [player]
-           (rect (round player.x) (round player.y) 16 16 12))
+           (let [animator player.animator
+                 [frames w h] animator.animation
+                 frame-id (. frames (+ 1 animator.frame))]
+             (spr frame-id player.x player.y 0 1 0 0 w h)))
+
+         (fn make-slash [x y]
+           {:x x :y y}
+
+           )
 
          (fn make-player []
            {:x 30 :y 0 :hp 3 :vx 0 :vy 0
-            :grounded? false})
+            :direction :right :grounded? false
+            :animator (make-animator run-animation)
+            :update update-player!
+            :render render-player!})
 
-         {: make-player : update-player! : move-player-x!
-          : jump! : render-player!}))
+         {: make-player : move-player-x! : jump!}))
 
 (fn make-boss-scene []
+  (local entities [])
   (local player (player-module.make-player))
+  (table.insert entities player)
 
   {:input (fn []
             (when (btn 0)
@@ -87,14 +135,14 @@
             (when (btn 3)
               (player-module.move-player-x! player true))
             (when (btn 2)
-              (player-module.move-player-x! player false))
-            )
+              (player-module.move-player-x! player false)))
    :update (fn []
-             (player-module.update-player! player)
-             )
+             (each [_ e (ipairs entities)]
+               (e:update)))
    :render (fn []
-             (cls 8)
-             (player-module.render-player! player)
+             (cls 5)
+             (each [_ e (ipairs entities)]
+               (e:render))
              (print "Hello world" 20 20 8 false 2))})
 
 (local main-menu
