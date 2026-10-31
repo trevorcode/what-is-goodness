@@ -42,7 +42,7 @@
         :update (fn [] true)
         :render (fn []
                   (cls 1)
-                  (print "Hello world" 20 20 8))})
+                  (print "Hello world" 20 20 8 false 2))})
 
 (scenes.push-scene! main-menu)
 
