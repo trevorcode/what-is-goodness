@@ -52,7 +52,7 @@
     (tset :finished? false)))
 
 (fn update-animation! [animator]
-  (when (not animator.finished?)
+  (when (and (not animator.finished?) animator.animation)
     (let [[frames _ _ frame-duration loop] animator.animation]
       (when (<= frame-duration animator.frame-timer)
         (do
@@ -73,17 +73,24 @@
 
 (module scenes
   (var scenes [])
+  (var scene-pop-counter 0)
 
   (fn push-scene! [scene]
-    (table.insert scenes 1 scene))
+    (table.insert scenes 1 scene)
+    (when scene.init
+      (scene.init)))
 
   (fn pop-scene! []
-    (table.remove scenes 1))
+    (set scene-pop-counter (+ 1 scene-pop-counter)))
 
   (fn set-scene! [scene]
-    (set scenes [scene]))
+    (set scenes [scene]) 
+    (when scene.init
+      (scene.init)))
 
   (fn swap-root-scene! [new-scene]
+    (when new-scene.init
+      (new-scene.init))
     (tset scenes 2 new-scene))
 
   (fn run-scenes! []
@@ -93,7 +100,11 @@
         (top.update)
         (for [i (length scenes) 1 -1]
           (let [s (. scenes i)]
-            (s.render))))))
+            (s.render)))))
+
+    (for [i 1 scene-pop-counter]
+      (table.remove scenes 1))
+    (set scene-pop-counter 0))
 
   {: push-scene! : pop-scene! : set-scene!
    : swap-root-scene! : run-scenes!})
@@ -173,15 +184,16 @@
   (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
   (var current-routine nil)
 
-  (fn cutscene-move! [x]
+  (fn cutscene-move! [x f]
     (set current-routine
          (coroutine.create
           (fn [player]
-            (while (not= player.x x)
+            (while (not (< (- x 2) player.x (+ x 2)))
               (let [dir (if (< player.x x) :right :left)]
                 (set player.x (+ player.x (* speed (if (= dir :right) 1 -1))))
                 (coroutine.yield)))
-            (set current-routine nil)))))
+            (set current-routine nil)
+            (f)))))
 
   (fn move-player-x! [player pos?]
     (when (and (not player.blocking?)
@@ -255,22 +267,23 @@
           frame-id (animator-frame-id animator)]
       (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
 
-    (let [animator player.slash-animator
-          [frames w h] animator.animation
-          frame-id (animator-frame-id animator)]
-      (spr frame-id (+ player.x
-                       (if (= player.direction :right) 16 -16))
-           (- player.y 8) 0 2
-           (if (= player.direction :right) 0 1)
-           0 w h)))
+    (when player.slash-animator.animation
+      (let [animator player.slash-animator
+            [frames w h] animator.animation
+            frame-id (animator-frame-id animator)]
+        (spr frame-id (+ player.x
+                         (if (= player.direction :right) 16 -16))
+             (- player.y 8) 0 2
+             (if (= player.direction :right) 0 1)
+             0 w h))))
 
   (fn make-player []
-    {:x 0 :y 110 :hp 3 :vx 0 :vy 0
+    {:x -30 :y 110 :hp 3 :vx 0 :vy 0
      :type :player
      :width 16 :height 16
      :direction :right :grounded? false
      :animator (make-animator run-animation)
-     :slash-animator (make-animator slash-animation)
+     :slash-animator (make-animator nil)
      :update update-player!
      :render render-player!})
 
@@ -284,18 +297,29 @@
                   [:boss "Teh way"]
                   [:player "Teh way..."]]})
 
-  (fn make-dialogue-scene [phase]
+  (fn draw-bubble [x y]
+    (rect x y 24 8 7)
+    (print ". . ." x y 1))
+
+  (fn make-dialogue-scene [phase close-fn]
     (var current-line 1)
     (var current-char 1)
     {:input (fn []
               (when (btnp 4)
-                (set current-line (+ current-line 1))
+                (when (= current-line (length (. script phase)))
+                  (scenes.pop-scene!)
+                  (close-fn))
+                (set current-line (math.min (length (. script phase)) (+ current-line 1)))
                 (set current-char 1)))
-     :update (fn [] true)
+     :update (fn [] (set current-char (+ current-char 1)))
      :render (fn []
                (let [[speaker text] (. script phase current-line)]
+                 (if (= speaker :player)
+                     (draw-bubble 40 90)
+                     (draw-bubble 200 80)
+                     )
                  (rect 0 0 240 30 7)
-                 (print text 1)))})
+                 (print (string.sub text 0 current-char) 0 0 1)))})
 
   {: make-dialogue-scene})
 
@@ -305,32 +329,39 @@
   (local world {:entities [boss player]
                 :boss boss
                 :player player})
-  (var did-startup-dialogue? false)
-
+  (var fight-start? false)
 
   {:input (fn []
-            (when (btn 0)
-              (player-module.jump! player))
-            (when (btn 3)
-              (player-module.move-player-x! player true))
-            (when (btn 2)
-              (player-module.move-player-x! player false))
-            (when (btnp 4)
-              (player-module.attack! player))
-            (when (btnp 5)
-              (if (btn 2)
-                  (player-module.dodge-roll! player :left)
+            (when fight-start? 
+              (when (btn 0)
+                (player-module.jump! player))
+              (when (btn 3)
+                (player-module.move-player-x! player true))
+              (when (btn 2)
+                (player-module.move-player-x! player false))
+              (when (btnp 4)
+                (player-module.attack! player))
+              (when (btnp 5)
+                (if (btn 2)
+                    (player-module.dodge-roll! player :left)
 
-                  (btn 3)
-                  (player-module.dodge-roll! player :right)
+                    (btn 3)
+                    (player-module.dodge-roll! player :right)
 
-                  (player-module.dodge-roll! player nil))))
+                    (player-module.dodge-roll! player nil)))))
+   :init (fn []
+           (player-module.cutscene-move!
+            50
+            (fn []
+              (scenes.push-scene! (dialogue.make-dialogue-scene
+                                   :phase1
+                                   (fn [] (set fight-start? true))))))
+           )
    :update (fn []
-             (when (not did-startup-dialogue?)
-               (player-module.cutscene-move! 50)
-               (scenes.push-scene! (dialogue.make-dialogue-scene :phase1)))
-             (each [_ e (ipairs world.entities)]
-               (e:update)))
+             (if fight-start?
+                 (each [_ e (ipairs world.entities)]
+                   (e:update))
+                 (world.player:update)))
    :render (fn []
              (cls 5)
              (each [_ e (ipairs world.entities)]
