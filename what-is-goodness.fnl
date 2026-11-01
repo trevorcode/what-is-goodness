@@ -77,9 +77,11 @@
          (local speed 1.5)
          (local gravity 0.2)
          (local run-animation (make-animation [1 3] 2 2 20 true))
+         (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
 
          (fn move-player-x! [player pos?]
            (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
+             (tset player :direction (if pos? :right :left))
              (tset player :x new-x)))
 
          (fn jump! [player]
@@ -88,9 +90,9 @@
              (tset player :y (- player.y 1))
              (tset player :vy jump-force)))
 
-         (fn attack [player]
-
-           )
+         (fn attack! [player]
+           (set player.attacking? true)
+           (set-animation! player.slash-animator slash-animation))
 
          (fn update-player! [player pos?]
            (when (< player.y ground-y)
@@ -102,13 +104,25 @@
              (set player.vy 0))
 
            (update-animation! player.animator)
+           (update-animation! player.slash-animator)
            (set player.y (+ player.vy player.y)))
 
          (fn render-player! [player]
            (let [animator player.animator
                  [frames w h] animator.animation
                  frame-id (. frames (+ 1 animator.frame))]
-             (spr frame-id player.x player.y 0 1 0 0 w h)))
+             (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
+
+           (let [animator player.slash-animator
+                 [frames w h] animator.animation
+                 frame-id (. frames (+ 1 animator.frame))]
+             (spr frame-id (+ player.x
+                              (if (= player.direction :right) 16 -16))
+                  (- player.y 8) 0 2
+                  (if (= player.direction :right) 0 1)
+                  0 w h))
+
+           )
 
          (fn make-slash [x y]
            {:x x :y y}
@@ -119,10 +133,11 @@
            {:x 30 :y 0 :hp 3 :vx 0 :vy 0
             :direction :right :grounded? false
             :animator (make-animator run-animation)
+            :slash-animator (make-animator slash-animation)
             :update update-player!
             :render render-player!})
 
-         {: make-player : move-player-x! : jump!}))
+         {: make-player : move-player-x! : jump! : attack!}))
 
 (fn make-boss-scene []
   (local entities [])
@@ -135,7 +150,10 @@
             (when (btn 3)
               (player-module.move-player-x! player true))
             (when (btn 2)
-              (player-module.move-player-x! player false)))
+              (player-module.move-player-x! player false))
+            (when (btnp 4)
+              (player-module.attack! player))
+            )
    :update (fn []
              (each [_ e (ipairs entities)]
                (e:update)))
@@ -158,15 +176,27 @@
   (scenes.run-scenes!))
 
 ;; <TILES>
-;; 001:eccccccccc888888caaaaaaaca888888cacccccccacc0ccccacc0ccccacc0ccc
-;; 002:ccccceee8888cceeaaaa0cee888a0ceeccca0ccc0cca0c0c0cca0c0c0cca0c0c
-;; 003:eccccccccc888888caaaaaaaca888888cacccccccacccccccacc0ccccacc0ccc
-;; 004:ccccceee8888cceeaaaa0cee888a0ceeccca0cccccca0c0c0cca0c0c0cca0c0c
-;; 017:cacccccccaaaaaaacaaacaaacaaaaccccaaaaaaac8888888cc000cccecccccec
-;; 018:ccca00ccaaaa0ccecaaa0ceeaaaa0ceeaaaa0cee8888ccee000cceeecccceeee
-;; 019:cacccccccaaaaaaacaaacaaacaaaaccccaaaaaaac8888888cc000cccecccccec
-;; 020:ccca00ccaaaa0ccecaaa0ceeaaaa0ceeaaaa0cee8888ccee000cceeecccceeee
+;; 001:0111111111555555188888881855555518111111181171111811711118117111
+;; 002:1111100055551100888821005558210011182111711821017118210171182101
+;; 003:0111111111555555188888881855555518111111181111111811711118117111
+;; 004:1111100055551100888821005558210011182111111821017118210171182101
+;; 017:1811111118888888188818881888811118888888155555551122211101111101
+;; 018:1118221188882110188821008888210088882100555511002221100011110000
+;; 019:1811111118888888188818881888811118888888155555551122211101111101
+;; 020:1118221188882110188821008888210088882100555511002221100011110000
 ;; </TILES>
+
+;; <SPRITES>
+;; 000:0000000008800000008800000008800000000000000000000000000000000000
+;; 001:0000000008800000008800000008800000008000000080000000800000000000
+;; 002:0000000008800000008800000008800000008800000088000000880000008800
+;; 003:0000000000800000008800000008800000008800000088000000880000008800
+;; 004:0000000000000000000000000000000000000000000000000000800000008800
+;; 018:0000880000008800000088000008800000088000000000000000000000000000
+;; 019:0000880000008800000088000008800000088000008800000880000000000000
+;; 020:0000880000008000000080000008800000080000008800000880000000000000
+;; 021:0000000000000000000000000008800000080000008800000880000000000000
+;; </SPRITES>
 
 ;; <WAVES>
 ;; 000:00000000ffffffff00000000ffffffff

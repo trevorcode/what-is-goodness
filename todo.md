@@ -2,8 +2,8 @@
 
 ## Player Movement 
 [] Attacking
-[] Moving
-[] Jumping (maybe?)
+[x] Moving
+[x] Jumping (maybe?)
 [] Roll dodge (iframes)
 [] Perfect block
 [] Health? Or one touch death?
