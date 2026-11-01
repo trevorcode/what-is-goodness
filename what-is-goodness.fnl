@@ -12,6 +12,20 @@
 (fn round [x]
   (math.floor (+ x 0.5)))
 
+(fn intersects [a b]
+  (let [ax a.x
+        ay a.y
+        axw (+ ax a.width)
+        ayh (+ ay a.height)
+        bx b.x
+        by b.y
+        bxw (+ bx b.width)
+        byh (+ by b.height)]
+    (and (or (< bx ax bxw)
+             (< bx axw bxw))
+         (or (< by ay byh)
+             (< by ayh byh)))))
+
 ;; "frames, width height, frame-duration in number of frames, loop"
 (fn make-animation [frames w h frame-duration loop?] 
   [frames w h frame-duration loop?])
@@ -76,6 +90,7 @@
 (local boss
        (do
          (local run-animation (make-animation [1 3] 2 2 20 true))
+         (local shield-animation (make-animation [2] 2 2 20 true))
          (local speed 1)
          (var current-strategy nil)
 
@@ -91,20 +106,31 @@
                  (set boss.x (+ boss.x (* speed (if (= dir :right) 1 -1))))
                  (coroutine.yield)))))
 
+         (fn shield [boss]
+           (set-animation! boss.animator shield-animation)
+           (set boss.shielding? true)
+           ((wait 200) boss)
+           (set boss.shielding? false))
+
          (fn fw-bw-move! [boss]
+           (set-animation! boss.animator run-animation)
            ((move! 50) boss)
            ((wait 50) boss)
-           
            ((move! 200) boss))
 
+         (fn wait-30-frames [boss]
+           ((wait 30) boss))
 
-         (set current-strategy (coroutine.create fw-bw-move!))
+         (local ability-list [fw-bw-move! shield wait-30-frames])
 
          (fn update [boss]
            (update-animation! boss.animator)
-           (when (and current-strategy
-                      (not= :dead (coroutine.status current-strategy)))
-             (coroutine.resume current-strategy boss)))
+           (when (or (not current-strategy)
+                     (= :dead (coroutine.status current-strategy)))
+             (let [random-ability (. ability-list (math.random (length ability-list)))]
+               (set current-strategy (coroutine.create random-ability))))
+
+           (coroutine.resume current-strategy boss))
 
          (fn render [boss]
            (let [animator boss.animator
@@ -114,9 +140,13 @@
 
          (fn make-boss []
            {:x 200 :y 110
+            :type :boss
+            :width 16 :height 16
             :direction :left
             :update update
             :render render
+            :health 10
+            :phases-left 6
             :animator (make-animator run-animation)})
 
          {: make-boss}))
@@ -213,6 +243,8 @@
 
          (fn make-player []
            {:x 30 :y 0 :hp 3 :vx 0 :vy 0
+            :type :player
+            :width 16 :height 16
             :direction :right :grounded? false
             :animator (make-animator run-animation)
             :slash-animator (make-animator slash-animation)
@@ -222,11 +254,15 @@
          {: make-player : move-player-x! : jump! : attack! : dodge-roll!}))
 
 (fn make-boss-scene []
-  (local entities [])
+  (fn world-add [world entity]
+    (set entity.world world)
+    (table.insert world.entities entity))
+
   (local player (player-module.make-player))
   (local boss (boss.make-boss))
-  (table.insert entities player)
-  (table.insert entities boss)
+  (local world {:entities [boss player]
+                :boss boss
+                :player player})
 
   {:input (fn []
             (when (btn 0)
@@ -244,14 +280,13 @@
                   (btn 3)
                   (player-module.dodge-roll! player :right)
 
-                  (player-module.dodge-roll! player nil)))
-            )
+                  (player-module.dodge-roll! player nil))))
    :update (fn []
-             (each [_ e (ipairs entities)]
+             (each [_ e (ipairs world.entities)]
                (e:update)))
    :render (fn []
              (cls 5)
-             (each [_ e (ipairs entities)]
+             (each [_ e (ipairs world.entities)]
                (e:render))
              (print "Hello world" 20 20 8 false 2))})
 
