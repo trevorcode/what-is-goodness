@@ -12,6 +12,39 @@
 (fn round [x]
   (math.floor (+ x 0.5)))
 
+;; "frames, width height, frame-duration in number of frames, loop"
+(fn make-animation [frames w h frame-duration loop?] 
+  [frames w h frame-duration loop?])
+
+(fn make-animator [init-animation]
+  {:frame 0
+   :frame-timer 0
+   :animation init-animation
+   :finished? false})
+
+(fn animator-frame-id [animator]
+  (. (. animator.animation 1) (+ 1 animator.frame)))
+
+(fn set-animation! [animator animation]
+  (doto animator
+    (tset :frame 0)
+    (tset :frame-timer 0)
+    (tset :animation animation)
+    (tset :finished? false)))
+
+(fn update-animation! [animator]
+  (when (not animator.finished?)
+    (let [[frames _ _ frame-duration loop] animator.animation]
+      (when (<= frame-duration animator.frame-timer)
+        (do
+          (set animator.frame-timer 0)
+          (if (and (not loop) (= (+ animator.frame 1) (length frames)))
+              (set animator.finished? true)
+              (set animator.frame (% (+ animator.frame 1) (length frames))))))
+
+      (set animator.frame-timer (+ 1 animator.frame-timer))
+      animator)))
+
 (local scenes
   (do
     (var scenes [])
@@ -40,35 +73,17 @@
     {: push-scene! : pop-scene! : set-scene!
      : swap-root-scene! : run-scenes!}))
 
-;; "frames, width height, frame-duration in number of frames, loop"
-(fn make-animation [frames w h frame-duration loop?] 
-  [frames w h frame-duration loop?])
+(local boss
+       (do
+         (local run-animation (make-animation [1 3] 2 2 20 true))
 
-(fn make-animator [init-animation]
-  {:frame 0
-   :frame-timer 0
-   :animation init-animation
-   :finished? false})
+         (fn update [])
+         (fn render [])
 
-(fn set-animation! [animator animation]
-  (doto animator
-    (tset :frame 0)
-    (tset :frame-timer 0)
-    (tset :animation animation)
-    (tset :finished? false)))
+         {:update update
+          :render render}
 
-(fn update-animation! [animator]
-  (when (not animator.finished?)
-    (let [[frames _ _ frame-duration loop] animator.animation]
-      (when (<= frame-duration animator.frame-timer)
-        (do
-          (set animator.frame-timer 0)
-          (if (and (not loop) (= (+ animator.frame 1) (length frames)))
-              (set animator.finished? true)
-              (set animator.frame (% (+ animator.frame 1) (length frames))))))
-
-      (set animator.frame-timer (+ 1 animator.frame-timer))
-      animator)))
+        ))
 
 (local player-module
        (do
@@ -76,8 +91,10 @@
          (local ground-y 110)
          (local speed 1.5)
          (local gravity 0.2)
+         (local roll-speed 3)
          (local run-animation (make-animation [1 3] 2 2 20 true))
-         (local block-animation (make-animation [2 4] 2 2 20 false))
+         (local block-animation (make-animation [5] 2 2 20 false))
+         (local roll-animation (make-animation [7 9 11 1] 2 2 5 true))
          (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
 
          (fn move-player-x! [player pos?]
@@ -96,20 +113,24 @@
              (tset player :vy jump-force)))
 
          (fn dodge-roll! [player roll?]
-           (if roll?
-               (let [roll-dir roll?]
-                 (set-animation! player.animator block-animation)
-                 (doto player 
-                   (tset :rolling? [roll-dir 30])
-                   (tset :vy -0.5)))
-               
-               (do 
-                 (set player.blocking? 40)
-                 (set-animation! player.animator block-animation))))
+           (when (and (not player.blocking?)
+                      (not player.rolling?))
+             (if roll?
+                 (let [roll-dir roll?]
+                   (set-animation! player.animator roll-animation)
+                   (doto player 
+                     (tset :rolling? [roll-dir 30])
+                     (tset :vy -0.5)))
+                 
+                 (do 
+                   (set player.blocking? 40)
+                   (set-animation! player.animator block-animation)))))
 
          (fn attack! [player]
-           (set player.attacking? true)
-           (set-animation! player.slash-animator slash-animation))
+           (when (and (not player.blocking?)
+                      (not player.rolling?))
+             (set player.attacking? true)
+             (set-animation! player.slash-animator slash-animation)))
 
          (fn update-player! [player pos?]
            (when (< player.y ground-y)
@@ -130,7 +151,7 @@
              (let [rolling player.rolling?
                    [dir time] rolling]
                (set (. rolling 2) (- time 1))
-               (set player.x (+ player.x (if (= dir :left) -2 2)))
+               (set player.x (+ player.x (if (= dir :left) (- roll-speed) roll-speed)))
                (when (= time 0)
                  (set player.rolling? nil)
                  (set-animation! player.animator run-animation))))
@@ -142,12 +163,12 @@
          (fn render-player! [player]
            (let [animator player.animator
                  [frames w h] animator.animation
-                 frame-id (. frames (+ 1 animator.frame))]
+                 frame-id (animator-frame-id animator)]
              (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
 
            (let [animator player.slash-animator
                  [frames w h] animator.animation
-                 frame-id (. frames (+ 1 animator.frame))]
+                 frame-id (animator-frame-id animator)]
              (spr frame-id (+ player.x
                               (if (= player.direction :right) 16 -16))
                   (- player.y 8) 0 2
@@ -220,10 +241,26 @@
 ;; 002:1111100055551100888821005558210011182111711821017118210171182101
 ;; 003:0111111111555555188888881855555518111111181111111811711118117111
 ;; 004:1111100055551100888821005558210011182111111821017118210171182101
+;; 005:0111111111555555188888881855555518191111181191111811791918117111
+;; 006:1111100055551100888821005558210019182111911821017118210171182101
+;; 007:0111111111588888125888811258888112588181115818810158188111581881
+;; 008:1111111088888811111158511111585177115851111158511111585111115851
+;; 009:0000111100011222001155550012888800128888001288810112888811228111
+;; 010:1011111011122211555555518888888111188881888188818888888111111181
+;; 011:0000111100001000011111111122222215888888158511111585111115851177
+;; 012:1000000011000000211111002222211088888511188885211888852118188521
 ;; 017:1811111118888888188818881888811118888888155555551122211101111101
 ;; 018:1118221188882110188821008888210088882100555511002221100011110000
 ;; 019:1811111118888888188818881888811118888888155555551122211101111101
 ;; 020:1118221188882110188821008888210088882100555511002221100011110000
+;; 021:1811111118888888188818881888811118888888155555551122211101111101
+;; 022:1118221188882110188821008888210088882100555511002221100011110000
+;; 023:1258818112588881125888811158888801122222001111120000001100000001
+;; 024:7711585111115851111158518888885122222211111111100001000011110000
+;; 025:1012811710128117101281111112811100128555001288880011555500011111
+;; 026:1117118111171181111111811111118155555581888888815555551111111110
+;; 027:1585111115851111158511111585117715851111158511111188888801111111
+;; 028:1881851118818510188185111818852118888521188885218888851111111110
 ;; </TILES>
 
 ;; <SPRITES>

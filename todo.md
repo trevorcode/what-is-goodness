@@ -1,12 +1,12 @@
 ## Very simple collision (we probably need no physics fortunately!) 
 
 ## Player Movement 
-[] Attacking
+[x] Attacking
 [x] Moving
 [x] Jumping (maybe?)
-[] Roll dodge (iframes)
-[] Perfect block
-[] Health? Or one touch death?
+[x] Roll dodge (iframes)
+[x] Perfect block
+[x] Health? Or one touch death?
 
 ## Boss movement
 Each ability should be a "strategy" or function/coroutine. 
