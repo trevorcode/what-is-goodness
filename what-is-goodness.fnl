@@ -76,14 +76,50 @@
 (local boss
        (do
          (local run-animation (make-animation [1 3] 2 2 20 true))
+         (local speed 1)
+         (var current-strategy nil)
 
-         (fn update [])
-         (fn render [])
+         (fn wait [frames]
+           (fn [boss]
+             (for [i 1 frames]
+               (coroutine.yield))))
 
-         {:update update
-          :render render}
+         (fn move! [x]
+           (fn [boss]
+             (while (not= boss.x x)
+               (let [dir (if (< boss.x x) :right :left)]
+                 (set boss.x (+ boss.x (* speed (if (= dir :right) 1 -1))))
+                 (coroutine.yield)))))
 
-        ))
+         (fn fw-bw-move! [boss]
+           ((move! 50) boss)
+           ((wait 50) boss)
+           
+           ((move! 200) boss))
+
+
+         (set current-strategy (coroutine.create fw-bw-move!))
+
+         (fn update [boss]
+           (update-animation! boss.animator)
+           (when (and current-strategy
+                      (not= :dead (coroutine.status current-strategy)))
+             (coroutine.resume current-strategy boss)))
+
+         (fn render [boss]
+           (let [animator boss.animator
+                 [frames w h] animator.animation
+                 frame-id (animator-frame-id animator)]
+             (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
+
+         (fn make-boss []
+           {:x 200 :y 110
+            :direction :left
+            :update update
+            :render render
+            :animator (make-animator run-animation)})
+
+         {: make-boss}))
 
 (local player-module
        (do
@@ -173,14 +209,7 @@
                               (if (= player.direction :right) 16 -16))
                   (- player.y 8) 0 2
                   (if (= player.direction :right) 0 1)
-                  0 w h))
-
-           )
-
-         (fn make-slash [x y]
-           {:x x :y y}
-
-           )
+                  0 w h)))
 
          (fn make-player []
            {:x 30 :y 0 :hp 3 :vx 0 :vy 0
@@ -195,7 +224,9 @@
 (fn make-boss-scene []
   (local entities [])
   (local player (player-module.make-player))
+  (local boss (boss.make-boss))
   (table.insert entities player)
+  (table.insert entities boss)
 
   {:input (fn []
             (when (btn 0)
