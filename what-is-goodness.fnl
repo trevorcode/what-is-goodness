@@ -7,6 +7,11 @@
 ;; script:  fennel
 ;; strict:  true
 
+(macro module [name & body]
+  `(local ,name
+    (do
+      ,(unpack body))))
+
 (var current-scene nil)
 
 (fn round [x]
@@ -59,205 +64,214 @@
       (set animator.frame-timer (+ 1 animator.frame-timer))
       animator)))
 
-(local scenes
-  (do
-    (var scenes [])
+(module world
+        (fn world-add [world entity]
+          (set entity.world world)
+          (table.insert world.entities entity))
 
-    (fn push-scene! [scene]
-      (table.insert scenes 1 scene))
+        {: world-add})
 
-    (fn pop-scene! []
-      (table.remove scenes 1))
+(module scenes
+        (var scenes [])
 
-    (fn set-scene! [scene]
-      (set scenes [scene]))
+        (fn push-scene! [scene]
+          (table.insert scenes 1 scene))
 
-    (fn swap-root-scene! [new-scene]
-      (tset scenes 2 new-scene))
+        (fn pop-scene! []
+          (table.remove scenes 1))
 
-    (fn run-scenes! []
-      (when (> (length scenes) 0)
-        (let [top (. scenes 1)]
-          (top.input)
-          (top.update)
-          (for [i (length scenes) 1 -1]
-            (let [s (. scenes i)]
-              (s.render))))))
+        (fn set-scene! [scene]
+          (set scenes [scene]))
 
-    {: push-scene! : pop-scene! : set-scene!
-     : swap-root-scene! : run-scenes!}))
+        (fn swap-root-scene! [new-scene]
+          (tset scenes 2 new-scene))
 
-(local boss
-       (do
-         (local run-animation (make-animation [1 3] 2 2 20 true))
-         (local shield-animation (make-animation [2] 2 2 20 true))
-         (local speed 1)
-         (var current-strategy nil)
+        (fn run-scenes! []
+          (when (> (length scenes) 0)
+            (let [top (. scenes 1)]
+              (top.input)
+              (top.update)
+              (for [i (length scenes) 1 -1]
+                (let [s (. scenes i)]
+                  (s.render))))))
 
-         (fn wait [frames]
-           (fn [boss]
-             (for [i 1 frames]
-               (coroutine.yield))))
+        {: push-scene! : pop-scene! : set-scene!
+         : swap-root-scene! : run-scenes!})
 
-         (fn move! [x]
-           (fn [boss]
-             (while (not= boss.x x)
-               (let [dir (if (< boss.x x) :right :left)]
-                 (set boss.x (+ boss.x (* speed (if (= dir :right) 1 -1))))
-                 (coroutine.yield)))))
+(module boss
+  (local run-animation (make-animation [1 3] 2 2 20 true))
+  (local shield-animation (make-animation [2] 2 2 20 true))
+  (local speed 1)
+  (var current-strategy nil)
 
-         (fn shield [boss]
-           (set-animation! boss.animator shield-animation)
-           (set boss.shielding? true)
-           ((wait 200) boss)
-           (set boss.shielding? false))
+  (fn wait [frames]
+    (fn [boss]
+      (for [i 1 frames]
+        (coroutine.yield))))
 
-         (fn fw-bw-move! [boss]
-           (set-animation! boss.animator run-animation)
-           ((move! 50) boss)
-           ((wait 50) boss)
-           ((move! 200) boss))
+  (fn move! [x]
+    (fn [boss]
+      (while (not= boss.x x)
+        (let [dir (if (< boss.x x) :right :left)]
+          (set boss.x (+ boss.x (* speed (if (= dir :right) 1 -1))))
+          (coroutine.yield)))))
 
-         (fn wait-30-frames [boss]
-           ((wait 30) boss))
+  (fn shield [boss]
+    (set-animation! boss.animator shield-animation)
+    (set boss.shielding? true)
+    ((wait 200) boss)
+    (set boss.shielding? false))
 
-         (local ability-list [fw-bw-move! shield wait-30-frames])
+  (fn fw-bw-move! [boss]
+    (set-animation! boss.animator run-animation)
+    ((move! 50) boss)
+    ((wait 50) boss)
+    ((move! 200) boss))
 
-         (fn update [boss]
-           (update-animation! boss.animator)
-           (when (or (not current-strategy)
-                     (= :dead (coroutine.status current-strategy)))
-             (let [random-ability (. ability-list (math.random (length ability-list)))]
-               (set current-strategy (coroutine.create random-ability))))
+  (fn wait-30-frames [boss]
+    ((wait 30) boss))
 
-           (coroutine.resume current-strategy boss))
+  (local ability-list [fw-bw-move! shield wait-30-frames])
 
-         (fn render [boss]
-           (let [animator boss.animator
-                 [frames w h] animator.animation
-                 frame-id (animator-frame-id animator)]
-             (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
+  (fn update [boss]
+    (update-animation! boss.animator)
+    (when (or (not current-strategy)
+              (= :dead (coroutine.status current-strategy)))
+      (let [random-ability (. ability-list (math.random (length ability-list)))]
+        (set current-strategy (coroutine.create random-ability))))
 
-         (fn make-boss []
-           {:x 200 :y 110
-            :type :boss
-            :width 16 :height 16
-            :direction :left
-            :update update
-            :render render
-            :health 10
-            :phases-left 6
-            :animator (make-animator run-animation)})
+    (coroutine.resume current-strategy boss))
 
-         {: make-boss}))
+  (fn render [boss]
+    (let [animator boss.animator
+          [frames w h] animator.animation
+          frame-id (animator-frame-id animator)]
+      (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
 
-(local player-module
-       (do
-         (local jump-force -4)
-         (local ground-y 110)
-         (local speed 1.5)
-         (local gravity 0.2)
-         (local roll-speed 3)
-         (local run-animation (make-animation [1 3] 2 2 20 true))
-         (local block-animation (make-animation [5] 2 2 20 false))
-         (local roll-animation (make-animation [7 9 11 1] 2 2 5 true))
-         (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
+  (fn make-boss []
+    {:x 200 :y 110
+     :type :boss
+     :width 16 :height 16
+     :direction :left
+     :update update
+     :render render
+     :health 10
+     :phases-left 6
+     :animator (make-animator run-animation)})
 
-         (fn move-player-x! [player pos?]
-           (when (and (not player.blocking?)
-                      (not player.rolling?))
-             (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
-               (tset player :direction (if pos? :right :left))
-               (tset player :x new-x))))
+  {: make-boss})
 
-         (fn jump! [player]
-           (when (and player.grounded?
-                      (not player.blocking?)
-                      (not player.rolling?)) 
-             (tset player :grounded? false)
-             (tset player :y (- player.y 1))
-             (tset player :vy jump-force)))
+(module player-module
+  (local jump-force -4)
+  (local ground-y 110)
+  (local speed 1.5)
+  (local gravity 0.2)
+  (local roll-speed 3)
+  (local run-animation (make-animation [1 3] 2 2 20 true))
+  (local block-animation (make-animation [5] 2 2 20 false))
+  (local roll-animation (make-animation [7 9 11 1] 2 2 5 true))
+  (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
 
-         (fn dodge-roll! [player roll?]
-           (when (and (not player.blocking?)
-                      (not player.rolling?))
-             (if roll?
-                 (let [roll-dir roll?]
-                   (set-animation! player.animator roll-animation)
-                   (doto player 
-                     (tset :rolling? [roll-dir 30])
-                     (tset :vy -0.5)))
-                 
-                 (do 
-                   (set player.blocking? 40)
-                   (set-animation! player.animator block-animation)))))
+  (fn move-player-x! [player pos?]
+    (when (and (not player.blocking?)
+               (not player.rolling?))
+      (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
+        (tset player :direction (if pos? :right :left))
+        (tset player :x new-x))))
 
-         (fn attack! [player]
-           (when (and (not player.blocking?)
-                      (not player.rolling?))
-             (set player.attacking? true)
-             (set-animation! player.slash-animator slash-animation)))
+  (fn jump! [player]
+    (when (and player.grounded?
+               (not player.blocking?)
+               (not player.rolling?)) 
+      (tset player :grounded? false)
+      (tset player :y (- player.y 1))
+      (tset player :vy jump-force)))
 
-         (fn update-player! [player pos?]
-           (when (< player.y ground-y)
-             (set player.vy (+ player.vy gravity)))
+  (fn dodge-roll! [player roll?]
+    (when (and (not player.blocking?)
+               (not player.rolling?))
+      (if roll?
+          (let [roll-dir roll?]
+            (set-animation! player.animator roll-animation)
+            (doto player 
+              (tset :rolling? [roll-dir 30])
+              (tset :vy -0.5)))
+          
+          (do 
+            (set player.blocking? 40)
+            (set-animation! player.animator block-animation)))))
 
-           (when (<= ground-y player.y)
-             (set player.grounded? true)
-             (set player.y ground-y)
-             (set player.vy 0))
+  (fn attack! [player]
+    (when (and (not player.blocking?)
+               (not player.rolling?))
+      (set player.attacking? true)
+      (set-animation! player.slash-animator slash-animation)))
 
-           (when player.blocking?
-             (set player.blocking? (- player.blocking? 1))
-             (when (= player.blocking? 0)
-               (set player.blocking? nil)
-               (set-animation! player.animator run-animation)))
+  (fn update-player! [player pos?]
+    (when (< player.y ground-y)
+      (set player.vy (+ player.vy gravity)))
 
-           (when player.rolling?
-             (let [rolling player.rolling?
-                   [dir time] rolling]
-               (set (. rolling 2) (- time 1))
-               (set player.x (+ player.x (if (= dir :left) (- roll-speed) roll-speed)))
-               (when (= time 0)
-                 (set player.rolling? nil)
-                 (set-animation! player.animator run-animation))))
+    (when (<= ground-y player.y)
+      (set player.grounded? true)
+      (set player.y ground-y)
+      (set player.vy 0))
 
-           (update-animation! player.animator)
-           (update-animation! player.slash-animator)
-           (set player.y (+ player.vy player.y)))
+    (when player.blocking?
+      (set player.blocking? (- player.blocking? 1))
+      (when (= player.blocking? 0)
+        (set player.blocking? nil)
+        (set-animation! player.animator run-animation)))
 
-         (fn render-player! [player]
-           (let [animator player.animator
-                 [frames w h] animator.animation
-                 frame-id (animator-frame-id animator)]
-             (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
+    (when player.rolling?
+      (let [rolling player.rolling?
+            [dir time] rolling]
+        (set (. rolling 2) (- time 1))
+        (set player.x (+ player.x (if (= dir :left) (- roll-speed) roll-speed)))
+        (when (= time 0)
+          (set player.rolling? nil)
+          (set-animation! player.animator run-animation))))
 
-           (let [animator player.slash-animator
-                 [frames w h] animator.animation
-                 frame-id (animator-frame-id animator)]
-             (spr frame-id (+ player.x
-                              (if (= player.direction :right) 16 -16))
-                  (- player.y 8) 0 2
-                  (if (= player.direction :right) 0 1)
-                  0 w h)))
+    (update-animation! player.animator)
+    (update-animation! player.slash-animator)
+    (set player.y (+ player.vy player.y)))
 
-         (fn make-player []
-           {:x 30 :y 0 :hp 3 :vx 0 :vy 0
-            :type :player
-            :width 16 :height 16
-            :direction :right :grounded? false
-            :animator (make-animator run-animation)
-            :slash-animator (make-animator slash-animation)
-            :update update-player!
-            :render render-player!})
+  (fn render-player! [player]
+    (let [animator player.animator
+          [frames w h] animator.animation
+          frame-id (animator-frame-id animator)]
+      (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
 
-         {: make-player : move-player-x! : jump! : attack! : dodge-roll!}))
+    (let [animator player.slash-animator
+          [frames w h] animator.animation
+          frame-id (animator-frame-id animator)]
+      (spr frame-id (+ player.x
+                       (if (= player.direction :right) 16 -16))
+           (- player.y 8) 0 2
+           (if (= player.direction :right) 0 1)
+           0 w h)))
+
+  (fn make-player []
+    {:x 30 :y 0 :hp 3 :vx 0 :vy 0
+     :type :player
+     :width 16 :height 16
+     :direction :right :grounded? false
+     :animator (make-animator run-animation)
+     :slash-animator (make-animator slash-animation)
+     :update update-player!
+     :render render-player!})
+
+  {: make-player : move-player-x! : jump! : attack! : dodge-roll!})
+
+(module dialogue
+  (fn make-dialogue-scene []
+    
+    
+    
+    )
+
+  {: make-dialogue-scene})
 
 (fn make-boss-scene []
-  (fn world-add [world entity]
-    (set entity.world world)
-    (table.insert world.entities entity))
-
   (local player (player-module.make-player))
   (local boss (boss.make-boss))
   (local world {:entities [boss player]
