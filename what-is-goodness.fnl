@@ -18,18 +18,10 @@
   (math.floor (+ x 0.5)))
 
 (fn intersects [a b]
-  (let [ax a.x
-        ay a.y
-        axw (+ ax a.width)
-        ayh (+ ay a.height)
-        bx b.x
-        by b.y
-        bxw (+ bx b.width)
-        byh (+ by b.height)]
-    (and (or (< bx ax bxw)
-             (< bx axw bxw))
-         (or (< by ay byh)
-             (< by ayh byh)))))
+  (and (< a.x (+ b.x b.width))
+       (< a.y (+ b.y b.height))
+       (< b.x (+ a.x a.width))
+       (< b.y (+ a.y a.height))))
 
 ;; "frames, width height, frame-duration in number of frames, loop"
 (fn make-animation [frames w h frame-duration loop?] 
@@ -77,7 +69,6 @@
 
   (fn delete-tagged [world]
     (each [i eid (ipairs list-to-remove)]
-      (trace eid)
       (table.remove world.entities eid)
       (table.remove list-to-remove i)))
 
@@ -156,8 +147,23 @@
 
   (local ability-list [fw-bw-move! shield wait-30-frames])
 
+  (fn damage [boss]
+    (when (not boss.invulnerable)
+      (set boss.health (- boss.health 1))
+      (set boss.invulnerable 30)))
+
   (fn update [boss]
     (update-animation! boss.animator)
+    (when boss.invulnerable
+      (set boss.invulnerable (- boss.invulnerable 1))
+      (when (= boss.invulnerable 0)
+        (set boss.invulnerable nil)))
+
+    (each [_ e (ipairs boss.world.entities)]
+      (when (and (= e.type :player-slash)
+                 (intersects e boss))
+        (damage boss)))
+
     (when (or (not current-strategy)
               (= :dead (coroutine.status current-strategy)))
       (let [random-ability (. ability-list (math.random (length ability-list)))]
@@ -169,7 +175,9 @@
     (let [animator boss.animator
           [frames w h] animator.animation
           frame-id (animator-frame-id animator)]
-      (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
+      (if (and boss.invulnerable (= 0 (% (// boss.invulnerable 5) 2))) 
+        nil
+        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h))))
 
   (fn make-boss []
     {:x 200 :y 110
