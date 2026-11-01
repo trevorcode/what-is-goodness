@@ -148,7 +148,8 @@
   (local ability-list [fw-bw-move! shield wait-30-frames])
 
   (fn damage [boss]
-    (when (not boss.invulnerable)
+    (when (and (not boss.invulnerable)
+               (not boss.shielding?))
       (set boss.health (- boss.health 1))
       (set boss.invulnerable 30)))
 
@@ -177,7 +178,10 @@
           frame-id (animator-frame-id animator)]
       (if (and boss.invulnerable (= 0 (% (// boss.invulnerable 5) 2))) 
         nil
-        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h))))
+        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
+
+    (when boss.shielding?
+      (circb (+ boss.x 7) (+ boss.y 7) 12 14)))
 
   (fn make-boss []
     {:x 200 :y 110
@@ -262,7 +266,7 @@
           (let [roll-dir roll?]
             (set-animation! player.animator roll-animation)
             (doto player 
-              (tset :rolling? [roll-dir 30])
+              (tset :rolling? [roll-dir 25])
               (tset :vy -0.5)))
           
           (do 
