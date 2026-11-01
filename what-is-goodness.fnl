@@ -64,12 +64,24 @@
       (set animator.frame-timer (+ 1 animator.frame-timer))
       animator)))
 
-(module world
-  (fn world-add [world entity]
+(module worlds
+  (local list-to-remove [])
+
+  (fn add [world entity]
     (set entity.world world)
+    (set entity.id (+ 1 (length world.entities)))
     (table.insert world.entities entity))
 
-  {: world-add})
+  (fn remove [world entity-id]
+    (table.insert list-to-remove entity-id))
+
+  (fn delete-tagged [world]
+    (each [i eid (ipairs list-to-remove)]
+      (trace eid)
+      (table.remove world.entities eid)
+      (table.remove list-to-remove i)))
+
+  {: add : remove : delete-tagged})
 
 (module scenes
   (var scenes [])
@@ -195,6 +207,31 @@
             (set current-routine nil)
             (f)))))
 
+  (fn spawn-slash [player]
+    (worlds.add player.world
+                {:update (fn [self]
+                           (update-animation! self.animator)
+                           (when self.animator.finished?
+                             (worlds.remove player.world self.id)))
+      :render (fn [self]
+                (let [animator self.animator
+                      [frames w h] animator.animation
+                      frame-id (animator-frame-id animator)]
+                  ;;(rect self.x self.y self.width self.height 13)
+                  (spr frame-id
+                       (- self.x 4)
+                       self.y 0 2
+                       (if (= self.direction :right) 0 1)
+                       0 w h))
+
+                )
+      :direction player.direction
+      :animator (make-animator slash-animation)
+      :x (+ (if (= player.direction :right) 16 -8) player.x)
+      :y (- player.y 8)
+      :height 32 :width 8
+      :type :player-slash}))
+
   (fn move-player-x! [player pos?]
     (when (and (not player.blocking?)
                (not player.rolling?))
@@ -228,7 +265,7 @@
     (when (and (not player.blocking?)
                (not player.rolling?))
       (set player.attacking? true)
-      (set-animation! player.slash-animator slash-animation)))
+      (spawn-slash player)))
 
   (fn update-player! [player pos?]
     (when current-routine
@@ -258,24 +295,13 @@
           (set-animation! player.animator run-animation))))
 
     (update-animation! player.animator)
-    (update-animation! player.slash-animator)
     (set player.y (+ player.vy player.y)))
 
   (fn render-player! [player]
     (let [animator player.animator
           [frames w h] animator.animation
           frame-id (animator-frame-id animator)]
-      (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
-
-    (when player.slash-animator.animation
-      (let [animator player.slash-animator
-            [frames w h] animator.animation
-            frame-id (animator-frame-id animator)]
-        (spr frame-id (+ player.x
-                         (if (= player.direction :right) 16 -16))
-             (- player.y 8) 0 2
-             (if (= player.direction :right) 0 1)
-             0 w h))))
+      (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h)))
 
   (fn make-player []
     {:x -30 :y 110 :hp 3 :vx 0 :vy 0
@@ -283,7 +309,6 @@
      :width 16 :height 16
      :direction :right :grounded? false
      :animator (make-animator run-animation)
-     :slash-animator (make-animator nil)
      :update update-player!
      :render render-player!})
 
@@ -326,9 +351,11 @@
 (fn make-boss-scene []
   (local player (player-module.make-player))
   (local boss (boss.make-boss))
-  (local world {:entities [boss player]
+  (local world {:entities []
                 :boss boss
                 :player player})
+  (worlds.add world player)
+  (worlds.add world boss)
   (var fight-start? false)
 
   {:input (fn []
@@ -361,7 +388,9 @@
              (if fight-start?
                  (each [_ e (ipairs world.entities)]
                    (e:update))
-                 (world.player:update)))
+                 (world.player:update))
+
+             (worlds.delete-tagged world))
    :render (fn []
              (cls 5)
              (each [_ e (ipairs world.entities)]
