@@ -24,8 +24,8 @@
        (< b.y (+ a.y a.height))))
 
 (fn dir-to [a b]
-  (let [dx (- a.x b.x)
-        dy (- a.y b.y)
+  (let [dx (- b.x a.x)
+        dy (- b.y a.y)
         len (math.sqrt (+ (* dx dx) (* dy dy)))]
     (if (< 0 len)
         [(/ dx len) (/ dy len)]
@@ -124,7 +124,7 @@
 (module projectiles
  (fn make-shield-projectile [x y target]
    {:x x :y y
-    :dx 0 :dy -0.4
+    :dx 0 :dy -5
     :width 8 :height 8
     :time 0
     :target target
@@ -133,8 +133,8 @@
               (set self.x (+ self.dx self.x))
               (set self.y (+ self.dy self.y))
               (let [dir (dir-to self self.target)]
-                (set self.dx (+ self.dx (. dir 1)))
-                (set self.dy (+ self.dy (. dir 2))))
+                (set self.dx (* 0.98 (+ self.dx (* 0.1 (. dir 1)))))
+                (set self.dy (* 0.98 (+ self.dy (* 0.1 (. dir 2))))))
 
               (when (< 180 self.time)
                 (worlds.remove self))
