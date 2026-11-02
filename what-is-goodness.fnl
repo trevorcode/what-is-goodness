@@ -23,6 +23,14 @@
        (< b.x (+ a.x a.width))
        (< b.y (+ a.y a.height))))
 
+(fn dir-to [a b]
+  (let [dx (- a.x b.x)
+        dy (- a.y b.y)
+        len (math.sqrt (+ (* dx dx) (* dy dy)))]
+    (if (< 0 len)
+        [(/ dx len) (/ dy len)]
+        [0 0])))
+
 ;; "frames, width height, frame-duration in number of frames, loop"
 (fn make-animation [frames w h frame-duration loop?] 
   [frames w h frame-duration loop?])
@@ -57,20 +65,21 @@
       animator)))
 
 (module worlds
-  (local list-to-remove [])
+  (var next-id 0)
 
   (fn add [world entity]
     (set entity.world world)
-    (set entity.id (+ 1 (length world.entities)))
+    (set entity.id next-id)
+    (set next-id (+ 1 next-id))
     (table.insert world.entities entity))
 
-  (fn remove [world entity-id]
-    (table.insert list-to-remove entity-id))
+  (fn remove [entity]
+    (set entity.destroy? true))
 
   (fn delete-tagged [world]
-    (each [i eid (ipairs list-to-remove)]
-      (table.remove world.entities eid)
-      (table.remove list-to-remove i)))
+    (for [i (length world.entities) 1 -1]
+      (when (. world.entities i :destroy?)
+        (table.remove world.entities i))))
 
   {: add : remove : delete-tagged})
 
@@ -112,11 +121,35 @@
   {: push-scene! : pop-scene! : set-scene!
    : swap-root-scene! : run-scenes!})
 
+(module projectiles
+ (fn make-shield-projectile [x y target]
+   {:x x :y y
+    :dx 0 :dy -0.4
+    :width 8 :height 8
+    :time 0
+    :target target
+    :update (fn [self]
+              (set self.time (+ 1 self.time))
+              (set self.x (+ self.dx self.x))
+              (set self.y (+ self.dy self.y))
+              (let [dir (dir-to self self.target)]
+                (set self.dx (+ self.dx (. dir 1)))
+                (set self.dy (+ self.dy (. dir 2))))
+
+              (when (< 180 self.time)
+                (worlds.remove self))
+              )
+    :render (fn [self] (circ self.x self.y 4 14))})
+
+ {: make-shield-projectile}
+ )
+
 (module boss
   (local run-animation (make-animation [1 3] 2 2 20 true))
   (local shield-animation (make-animation [2] 2 2 20 true))
   (local speed 1)
   (var current-strategy nil)
+  (var other-coroutines [])
 
   (fn wait [frames]
     (fn [boss]
@@ -132,9 +165,14 @@
 
   (fn shield [boss]
     (set-animation! boss.animator shield-animation)
-    (set boss.shielding? true)
-    ((wait 200) boss)
-    (set boss.shielding? false))
+    (wait 10)
+    (table.insert
+     other-coroutines
+     (coroutine.create 
+      (fn [boss]
+        (set boss.shielding? true)
+        ((wait 200) boss)
+        (set boss.shielding? false)))))
 
   (fn fw-bw-move! [boss]
     (set-animation! boss.animator run-animation)
@@ -163,6 +201,10 @@
     (each [_ e (ipairs boss.world.entities)]
       (when (and (= e.type :player-slash)
                  (intersects e boss))
+
+        (when boss.shielding?
+          (worlds.add boss.world (projectiles.make-shield-projectile boss.x boss.y boss.world.player)))
+
         (damage boss)))
 
     (when (or (not current-strategy)
@@ -170,7 +212,13 @@
       (let [random-ability (. ability-list (math.random (length ability-list)))]
         (set current-strategy (coroutine.create random-ability))))
 
-    (coroutine.resume current-strategy boss))
+    (coroutine.resume current-strategy boss)
+
+    (set other-coroutines
+         (icollect [_ c (ipairs other-coroutines)]
+           (if (= :dead (coroutine.status c))
+               nil
+               (do (coroutine.resume c boss) c)))))
 
   (fn render [boss]
     (let [animator boss.animator
@@ -219,12 +267,18 @@
             (set current-routine nil)
             (f)))))
 
+  (fn damage [player]
+    (when (not player.invulnerable)
+      (set player.health (- player.health 1))
+      (set player.invulnerable 30)))
+
   (fn spawn-slash [player]
     (worlds.add player.world
                 {:update (fn [self]
                            (update-animation! self.animator)
+
                            (when self.animator.finished?
-                             (worlds.remove player.world self.id)))
+                             (worlds.remove self)))
       :render (fn [self]
                 (let [animator self.animator
                       [frames w h] animator.animation
@@ -291,6 +345,11 @@
       (set player.y ground-y)
       (set player.vy 0))
 
+    (when player.invulnerable
+      (set player.invulnerable (- player.invulnerable 1))
+      (when (= player.invulnerable 0)
+        (set player.invulnerable nil)))
+
     (when player.blocking?
       (set player.blocking? (- player.blocking? 1))
       (when (= player.blocking? 0)
@@ -317,6 +376,7 @@
 
   (fn make-player []
     {:x -30 :y 110 :hp 3 :vx 0 :vy 0
+     :health 3
      :type :player
      :width 16 :height 16
      :direction :right :grounded? false
@@ -332,7 +392,35 @@
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
-                  [:player "Teh way..."]]})
+                  [:player "What is patience..."]]
+                 :phase2
+                 [[:player "Do you know the way?"]
+                  [:boss "I do not know the way"]
+                  [:boss "Teh way"]
+                  [:player "What is faith..."]]
+                 :phase3
+                 [[:player "Do you know the way?"]
+                  [:boss "I do not know the way"]
+                  [:boss "Teh way"]
+                  [:player "What is knowledge..."]]
+                 :phase4
+                 [[:player "Do you know the way?"]
+                  [:boss "I do not know the way"]
+                  [:boss "Teh way"]
+                  [:player "What is mercy..."]]
+
+                 :phase5
+                 [[:player "Do you know the way?"]
+                  [:boss "I do not know the way"]
+                  [:boss "Teh way"]
+                  [:player "What is wisdom..."]]
+
+                 :phase6
+                 [[:player "Do you know the way?"]
+                  [:boss "I do not know the way"]
+                  [:boss "Teh way"]
+                  [:player "What is goodness..."]]
+                 })
 
   (fn draw-bubble [x y]
     (rect x y 24 8 7)
@@ -368,10 +456,10 @@
                 :player player})
   (worlds.add world player)
   (worlds.add world boss)
-  (var fight-start? false)
+  (var fight-state :not-started)
 
   {:input (fn []
-            (when fight-start? 
+            (when (= :started fight-state) 
               (when (btn 0)
                 (player-module.jump! player))
               (when (btn 3)
@@ -394,10 +482,10 @@
             (fn []
               (scenes.push-scene! (dialogue.make-dialogue-scene
                                    :phase1
-                                   (fn [] (set fight-start? true))))))
+                                   (fn [] (set fight-state :started))))))
            )
    :update (fn []
-             (if fight-start?
+             (if (= :started fight-state)
                  (each [_ e (ipairs world.entities)]
                    (e:update))
                  (world.player:update))
@@ -407,7 +495,10 @@
              (cls 5)
              (each [_ e (ipairs world.entities)]
                (e:render))
-             (print "Hello world" 20 20 8 false 2))})
+
+             (for [i 1 player.health]
+               (circ (* i 9) 5 3 1))
+             )})
 
 (local main-menu
        {:input (fn [] true)
