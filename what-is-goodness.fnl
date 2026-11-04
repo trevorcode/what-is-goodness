@@ -311,7 +311,6 @@
 
     (for [i 1 8]
       (for [j 1 8]
-        (trace "FIRE")
         (worlds.add boss.world (projectiles.make-fire (- (* 40 j) (if (= 0 (% i 2)) 40 25)) 10)))
       ((wait 60) boss))
 
@@ -325,6 +324,44 @@
         (set boss.y (lerp cur-y start-y (ease-in-out (/ i 50))))
         (coroutine.yield)))
     )
+
+(fn phase-6-attack [boss]
+    (wait 50)
+    (local start-x boss.x)
+    (local start-y boss.y)
+
+    (fn strike-down []
+      (set boss.x boss.world.player.x)
+      (set boss.y 40)
+      ((wait 20) boss)
+      (let [cur-y boss.y
+            strike (projectiles.make-strike boss)]
+        (worlds.add boss.world strike)
+        (for [i 1 30]
+          (set boss.y (lerp cur-y start-y (ease-in (/ i 30))))
+          (coroutine.yield))
+        (strike:remove)
+        ((wait 20) boss)))
+
+    (fn strike-across []
+      (local r (math.random 2))
+      (set boss.x (if (= r 1) 216 0))
+      (local target-x (if (= r 1) 0 216))
+      ((wait 40) boss)
+      (let [cur-x boss.x
+            strike (projectiles.make-strike boss)]
+        (worlds.add boss.world strike)
+        (for [i 1 50]
+          (set boss.x (lerp cur-x target-x (ease-in (/ i 50))))
+          (coroutine.yield))
+        (strike:remove)
+        ((wait 20) boss)))
+
+    (for [i 1 10]
+      (if (= 1 (math.random 2))
+          (strike-across)
+          (strike-down))
+      ))
 
   (fn attack-string [boss]
     (wait 50)
@@ -344,11 +381,12 @@
   (fn wait-30-frames [boss]
     ((wait 30) boss))
 
-  (local ability-list [fw-bw-move!
-                       shield attack-string phase-3-attack
+  (local ability-list [;;fw-bw-move!
+                       ;; shield attack-string phase-3-attack
                        wait-30-frames
-                       phase-4-attack
-                       phase-5-attack
+                       ;; phase-4-attack
+                       ;; phase-5-attack
+                       phase-6-attack
                        ])
 
   (fn damage [boss]
