@@ -185,7 +185,19 @@
                 (worlds.remove self)))
     :render (fn [self] (rect self.x self.y self.width self.height 13))})
 
- {: make-shield-projectile : make-slash : make-phase-3-projectile}
+ (fn make-strike [boss]
+   {:x boss.x :y boss.y
+    :width 8 :height 24
+    :type :projectile
+    :remove (fn [self]
+              (worlds.remove self))
+    :update (fn [self]
+              (set self.x boss.x)
+              (set self.y boss.y))
+    :render (fn [self] (rect self.x self.y self.width self.height 11))})
+
+ {: make-shield-projectile : make-slash : make-phase-3-projectile
+  : make-strike}
  )
 
 (module boss
@@ -249,6 +261,8 @@
     (local start-x boss.x)
     (local start-y boss.y)
 
+    (local strike (projectiles.make-strike boss))
+    (worlds.add boss.world strike)
     (for [i 1 50]
       (set boss.x (lerp start-x (+ start-x 15) (ease-in-out (/ i 50))))
       (coroutine.yield))
@@ -266,6 +280,7 @@
       (for [i 1 20]
         (set boss.x (lerp cur-x start-x (/ i 20)))
         (coroutine.yield)))
+    (strike:remove)
     )
 
   (fn attack-string [boss]
