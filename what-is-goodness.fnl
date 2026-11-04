@@ -173,6 +173,21 @@
               )
     :render (fn [self] (circ self.x self.y 4 12))})
 
+(fn make-fire [x y]
+   {:x x :y y
+    :dx 0 :dy 1
+    :width 8 :height 8
+    :type :projectile
+    :time 0
+    :update (fn [self]
+              (set self.time (+ 1 self.time))
+              (set self.x (+ self.dx self.x))
+              (set self.y (+ self.dy self.y))
+
+              (when (< 130 self.time)
+                (worlds.remove self)))
+    :render (fn [self] (circ self.x self.y 4 10))})
+
  (fn make-slash [x y]
    (local slash-time 8)
    {:x x :y y
@@ -197,7 +212,7 @@
     :render (fn [self] (rect self.x self.y self.width self.height 11))})
 
  {: make-shield-projectile : make-slash : make-phase-3-projectile
-  : make-strike}
+  : make-strike : make-fire}
  )
 
 (module boss
@@ -283,6 +298,34 @@
     (strike:remove)
     )
 
+(fn phase-5-attack [boss]
+    (wait 50)
+
+    (local start-x boss.x)
+    (local start-y boss.y)
+
+    (for [i 1 50]
+      (set boss.x (lerp start-x 110 (ease-in-out (/ i 50))))
+      (set boss.y (lerp start-y 50 (ease-in-out (/ i 50))))
+      (coroutine.yield))
+
+    (for [i 1 8]
+      (for [j 1 8]
+        (trace "FIRE")
+        (worlds.add boss.world (projectiles.make-fire (- (* 40 j) (if (= 0 (% i 2)) 40 25)) 10)))
+      ((wait 60) boss))
+
+    ((wait 80) boss)
+    
+
+    (let [cur-x boss.x
+          cur-y boss.y]
+      (for [i 1 50]
+        (set boss.x (lerp cur-x start-x (ease-in-out (/ i 50))))
+        (set boss.y (lerp cur-y start-y (ease-in-out (/ i 50))))
+        (coroutine.yield)))
+    )
+
   (fn attack-string [boss]
     (wait 50)
     (for [i 1 8]
@@ -301,9 +344,12 @@
   (fn wait-30-frames [boss]
     ((wait 30) boss))
 
-  (local ability-list [;;fw-bw-move! shield attack-string phase-3-attack
+  (local ability-list [fw-bw-move!
+                       shield attack-string phase-3-attack
                        wait-30-frames
-                       phase-4-attack])
+                       phase-4-attack
+                       phase-5-attack
+                       ])
 
   (fn damage [boss]
     (when (and (not boss.invulnerable)
