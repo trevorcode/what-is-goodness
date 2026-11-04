@@ -243,6 +243,31 @@
       (coroutine.yield))
     )
 
+(fn phase-4-attack [boss]
+    (wait 50)
+
+    (local start-x boss.x)
+    (local start-y boss.y)
+
+    (for [i 1 50]
+      (set boss.x (lerp start-x (+ start-x 15) (ease-in-out (/ i 50))))
+      (coroutine.yield))
+
+    ((wait 80) boss)
+
+    (let [cur-x boss.x]
+      (for [i 1 20]
+        (set boss.x (lerp cur-x 15 (/ i 20)))
+        (coroutine.yield)))
+
+    ((wait 80) boss)
+
+    (let [cur-x boss.x]
+      (for [i 1 20]
+        (set boss.x (lerp cur-x start-x (/ i 20)))
+        (coroutine.yield)))
+    )
+
   (fn attack-string [boss]
     (wait 50)
     (for [i 1 8]
@@ -261,9 +286,9 @@
   (fn wait-30-frames [boss]
     ((wait 30) boss))
 
-  (local ability-list [;;fw-bw-move! shield attack-string
+  (local ability-list [;;fw-bw-move! shield attack-string phase-3-attack
                        wait-30-frames
-                       phase-3-attack])
+                       phase-4-attack])
 
   (fn damage [boss]
     (when (and (not boss.invulnerable)
