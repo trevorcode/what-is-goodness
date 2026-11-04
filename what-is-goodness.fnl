@@ -23,6 +23,17 @@
        (< b.x (+ a.x a.width))
        (< b.y (+ a.y a.height))))
 
+(fn lerp [start end percent]
+  (+ start (* (- end start) percent)))
+
+(fn ease-in [t]
+  (* t t t))
+
+(fn ease-in-out [t]
+  (if (< t 0.5)
+      (* 4 t t t)
+      (- 1 (* 4 (- 1 t) (- 1 t) (- 1 t)))))
+
 (fn dir-to [a b]
   (let [dx (- b.x a.x)
         dy (- b.y a.y)
@@ -126,6 +137,7 @@
    {:x x :y y
     :dx 0 :dy -5
     :width 8 :height 8
+    :type :projectile
     :time 0
     :target target
     :update (fn [self]
@@ -141,7 +153,39 @@
               )
     :render (fn [self] (circ self.x self.y 4 14))})
 
- {: make-shield-projectile}
+(fn make-phase-3-projectile [x y target]
+   {:x x :y y
+    :dx 0 :dy 0
+    :width 8 :height 8
+    :type :projectile
+    :time 0
+    :target target
+    :update (fn [self]
+              (set self.time (+ 1 self.time))
+              (set self.x (+ self.dx self.x))
+              (set self.y (+ self.dy self.y))
+              (let [dir (dir-to self self.target)]
+                (set self.dx (* 0.98 (+ self.dx (* 0.1 (. dir 1)))))
+                (set self.dy (* 0.98 (+ self.dy (* 0.1 (. dir 2))))))
+
+              (when (< 180 self.time)
+                (worlds.remove self))
+              )
+    :render (fn [self] (circ self.x self.y 4 12))})
+
+ (fn make-slash [x y]
+   (local slash-time 8)
+   {:x x :y y
+    :width 8 :height 36
+    :type :projectile
+    :time 0
+    :update (fn [self]
+              (set self.time (+ 1 self.time))
+              (when (< 8 self.time)
+                (worlds.remove self)))
+    :render (fn [self] (rect self.x self.y self.width self.height 13))})
+
+ {: make-shield-projectile : make-slash : make-phase-3-projectile}
  )
 
 (module boss
@@ -174,6 +218,40 @@
         ((wait 200) boss)
         (set boss.shielding? false)))))
 
+  (fn phase-3-attack [boss]
+    (wait 50)
+
+    (local start-x boss.x)
+    (local start-y boss.y)
+
+    (for [i 1 50]
+      (set boss.y (lerp start-y (- start-y 50) (ease-in-out (/ i 50))))
+      (coroutine.yield))
+
+    ((wait 80) boss)
+    (worlds.add boss.world (projectiles.make-phase-3-projectile boss.x boss.y boss.world.player))
+    ((wait 20) boss)
+
+    (worlds.add boss.world (projectiles.make-phase-3-projectile boss.x boss.y boss.world.player))
+    ((wait 20) boss)
+
+    (worlds.add boss.world (projectiles.make-phase-3-projectile boss.x boss.y boss.world.player))
+    ((wait 20) boss)
+
+    (for [i 1 50]
+      (set boss.y (lerp (- start-y 50) start-y (ease-in-out (/ i 50))))
+      (coroutine.yield))
+    )
+
+  (fn attack-string [boss]
+    (wait 50)
+    (for [i 1 8]
+      (worlds.add boss.world (projectiles.make-slash (- boss.x 20) (- boss.y 16)))
+      ((wait 50) boss)
+      ((move! (- 240 (* i 20))) boss))
+    
+    ((move! 200) boss))
+
   (fn fw-bw-move! [boss]
     (set-animation! boss.animator run-animation)
     ((move! 50) boss)
@@ -183,7 +261,9 @@
   (fn wait-30-frames [boss]
     ((wait 30) boss))
 
-  (local ability-list [fw-bw-move! shield wait-30-frames])
+  (local ability-list [;;fw-bw-move! shield attack-string
+                       wait-30-frames
+                       phase-3-attack])
 
   (fn damage [boss]
     (when (and (not boss.invulnerable)
@@ -350,6 +430,13 @@
       (when (= player.invulnerable 0)
         (set player.invulnerable nil)))
 
+    (each [_ e (ipairs player.world.entities)]
+      (when (and (= e.type :projectile)
+                 (intersects e player)
+                 (not player.invulnerable))
+        (set player.health (- player.health 1))
+        (set player.invulnerable 30)))
+
     (when player.blocking?
       (set player.blocking? (- player.blocking? 1))
       (when (= player.blocking? 0)
@@ -372,7 +459,9 @@
     (let [animator player.animator
           [frames w h] animator.animation
           frame-id (animator-frame-id animator)]
-      (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h)))
+      (if (and player.invulnerable (= 0 (% (// player.invulnerable 5) 2))) 
+        nil
+        (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))))
 
   (fn make-player []
     {:x -30 :y 110 :hp 3 :vx 0 :vy 0
