@@ -113,21 +113,22 @@
   {: add : remove : delete-tagged})
 
 (module scenes
+  (local scene-list {})
   (var scenes [])
   (var scene-pop-counter 0)
+  (var scenes-to-push [])
+
+  (fn add-scene! [key scene-constructor]
+    (tset scene-list key scene-constructor))
 
   (fn push-scene! [scene]
-    (table.insert scenes 1 scene)
-    (when scene.init
-      (scene.init)))
+    (table.insert scenes-to-push 1 [:push scene]))
 
   (fn pop-scene! []
     (set scene-pop-counter (+ 1 scene-pop-counter)))
 
   (fn set-scene! [scene]
-    (set scenes [scene]) 
-    (when scene.init
-      (scene.init)))
+    (table.insert scenes-to-push 1 [:set scene]))
 
   (fn swap-root-scene! [new-scene]
     (when new-scene.init
@@ -145,10 +146,20 @@
 
     (for [i 1 scene-pop-counter]
       (table.remove scenes 1))
-    (set scene-pop-counter 0))
+    (set scene-pop-counter 0)
+
+    (each [_ [action s] (ipairs scenes-to-push)]
+      (match action
+        :set (set scenes [s])
+        :push (table.insert scenes 1 s))
+      (when s.init
+        (s.init)))
+
+    (set scenes-to-push []))
 
   {: push-scene! : pop-scene! : set-scene!
-   : swap-root-scene! : run-scenes!})
+   : swap-root-scene! : run-scenes! : add-scene!
+   : scene-list})
 
 (module projectiles
  (fn make-shield-projectile [x y target]
@@ -379,7 +390,9 @@
       (if (= 1 (math.random 2))
           (strike-across)
           (strike-down))
-      ))
+      )
+    (set boss.x start-x)
+    (set boss.y start-y))
 
   (fn attack-string [boss]
     (wait 50)
@@ -603,9 +616,13 @@
     (let [animator player.animator
           [frames w h] animator.animation
           frame-id (animator-frame-id animator)]
+      (when (<= player.health 0)
+        (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) 8)))
       (if (and player.invulnerable (= 0 (% (// player.invulnerable 5) 2))) 
         nil
-        (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))))
+        (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
+      (when (<= player.health 0)
+        (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) c)))))
 
   (fn player-input [enabled? player]
     (when enabled? 
@@ -668,6 +685,10 @@
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is goodness..."]]
+
+                 :defeat
+                 [[:player "... !"]
+                  [:player "I must learn more..."]]
                  })
 
   (fn draw-bubble [x y]
@@ -725,13 +746,18 @@
              (when (<= player.health 0)
                (set fight-state :defeated)
                (set boss.fighting? false)
-
-               )
+               (scenes.push-scene! 
+                (dialogue.make-dialogue-scene
+                 :defeat
+                 (fn []
+                   (scenes.set-scene!
+                    ((. scenes :scene-list :make-pre-boss-scene)))))))
 
              (worlds.delete-tagged world))
    :render (fn []
-             (cls 5)
-             (memcpy 0 bg-start-address 16320)
+             (cls 1)
+             (when (not (= fight-state :defeated))
+                 (memcpy 0 bg-start-address 16320))
              (each [_ e (ipairs world.entities)]
                (e:render))
 
@@ -757,8 +783,7 @@
              (each [_ e (ipairs world.entities)]
                (e:update))
              (when (< 240 player.x)
-               (scenes.set-scene! (make-boss-scene))
-               )
+               (scenes.set-scene! ((. scenes :scene-list :make-boss-scene))))
              (worlds.delete-tagged world))
    :render (fn []
              (cls 5)
@@ -768,6 +793,9 @@
              )}
   )
 
+(scenes.add-scene! :make-pre-boss-scene make-pre-boss-scene)
+(scenes.add-scene! :make-boss-scene make-boss-scene)
+
 (local main-menu
        {:input (fn [] true)
         :update (fn [] true)
@@ -775,7 +803,7 @@
                   (cls 1)
                   (print "Hello world" 20 20 8 false 2))})
 
-(scenes.push-scene! (make-pre-boss-scene))
+(scenes.set-scene! (make-pre-boss-scene))
 
 (fn _G.BOOT []
   (decode-rle bg)
