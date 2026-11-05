@@ -429,12 +429,14 @@
 
         (damage boss)))
 
-    (when (or (not current-strategy)
-              (= :dead (coroutine.status current-strategy)))
+    (when (and boss.fighting?
+               (or (not current-strategy)
+                   (= :dead (coroutine.status current-strategy))))
       (let [random-ability (. ability-list (math.random (length ability-list)))]
         (set current-strategy (coroutine.create random-ability))))
 
-    (coroutine.resume current-strategy boss)
+    (when current-strategy 
+      (coroutine.resume current-strategy boss))
 
     (set other-coroutines
          (icollect [_ c (ipairs other-coroutines)]
@@ -687,8 +689,7 @@
                (let [[speaker text] (. script phase current-line)]
                  (if (= speaker :player)
                      (draw-bubble 40 90)
-                     (draw-bubble 200 80)
-                     )
+                     (draw-bubble 200 80))
                  (rect 0 0 240 30 7)
                  (print (string.sub text 0 current-char) 0 0 1)))})
 
@@ -713,13 +714,19 @@
             (fn []
               (scenes.push-scene! (dialogue.make-dialogue-scene
                                    :phase1
-                                   (fn [] (set fight-state :started))))))
+                                   (fn []
+                                     (set fight-state :started)
+                                     (set boss.fighting? true))))))
            )
    :update (fn []
-             (if (= :started fight-state)
-                 (each [_ e (ipairs world.entities)]
-                   (e:update))
-                 (world.player:update))
+             (each [_ e (ipairs world.entities)]
+               (e:update))
+
+             (when (<= player.health 0)
+               (set fight-state :defeated)
+               (set boss.fighting? false)
+
+               )
 
              (worlds.delete-tagged world))
    :render (fn []
