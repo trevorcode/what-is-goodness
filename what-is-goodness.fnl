@@ -154,7 +154,7 @@
   (fn swap-root-scene! [new-scene]
     (when new-scene.init
       (new-scene.init))
-    (tset scenes 2 new-scene))
+    (tset scenes (length scenes) new-scene))
 
   (fn run-scenes! []
     (when (> (length scenes) 0)
@@ -444,10 +444,9 @@
       (fn []
         (when (< (phase->number current-phase) 6)
           (increase-current-phase!)
-          (scenes.set-scene!
-           ((. scenes :scene-list :make-pre-boss-scene)))))))
-
-    )
+          (scenes.push-scene!
+           ((. scenes :scene-list :make-transition-screen)
+            (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene)))))))))))
 
   (fn wait-30-frames [boss]
     ((wait 30) boss))
@@ -833,8 +832,9 @@
                 (dialogue.make-dialogue-scene
                  :defeat
                  (fn []
-                   (scenes.set-scene!
-                    ((. scenes :scene-list :make-pre-boss-scene)))))))
+                   (scenes.push-scene!
+                    ((. scenes :scene-list :make-transition-screen)
+                     (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene))))))))))
 
              (worlds.delete-tagged world))
    :render (fn []
@@ -876,17 +876,31 @@
              )}
   )
 
-(fn make-transition-screen []
+(fn make-transition-screen [on-swap]
+  (local duration 80)
+  (var elapsed 0)
+  (var phase :out)
   {:input (fn [] true)
-   :update (fn [] true)
+   :update (fn []
+             (set elapsed (+ 1 elapsed))
+             (when (= elapsed 40)
+               (set phase :in)
+               (on-swap))
+             (when (= elapsed duration)
+               (scenes.pop-scene!)))
    :render (fn []
-             (cls 1)
-             (print current-phase))})
+             (local y
+                    (if (< elapsed (/ duration 2))
+                     (lerp 136 0 (ease-in-out (/ elapsed (/ duration 2))))
+                     (lerp 0 136 (ease-in-out (/ (- elapsed (/ duration 2)) (/ duration 2))))))
+             (rect 0 y 240 136 2))})
 
 (fn make-main-menu-scene []
   {:input (fn []
             (when (btn 4)
-              (scenes.set-scene! ((. scenes :scene-list :make-pre-boss-scene)))))
+              (scenes.push-scene!
+               ((. scenes :scene-list :make-transition-screen)
+                (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene))))))))
    :update (fn [] true)
    :render (fn []
              (cls 1)
