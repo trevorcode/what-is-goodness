@@ -526,7 +526,7 @@
         (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) 8)))
       (if (and boss.invulnerable (= 0 (% (// boss.invulnerable 5) 2))) 
         nil
-        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h))
+        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 1 0) 0 w h))
       (when boss.defeated?
         (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) c))))
 
@@ -639,7 +639,7 @@
           (tset :vy -0.5)))))
 
   (fn attack! [player]
-    (when (not player.rolling?)
+    (when (not= player.state :rolling)
       (set player.state :attacking)
       (set player.attack-timer 8)
       (spawn-slash player)))
