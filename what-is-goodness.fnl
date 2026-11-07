@@ -95,6 +95,25 @@
 
 (var current-phase :phase1)
 
+(fn increase-current-phase! []
+  (set current-phase
+       (case current-phase
+         :phase1 :phase2
+         :phase2 :phase3
+         :phase3 :phase4
+         :phase4 :phase5
+         :phase5 :phase6
+         :phase6 :phase7)))
+
+(fn phase->number [phase]
+  (case phase
+    :phase1 1
+    :phase2 2
+    :phase3 3
+    :phase4 4
+    :phase5 5
+    :phase6 6))
+
 (module worlds
   (var next-id 0)
 
@@ -426,13 +445,22 @@
   (fn wait-30-frames [boss]
     ((wait 30) boss))
 
-  (local ability-list [fw-bw-move!
-                       shield attack-string phase-3-attack
-                       wait-30-frames
-                       phase-4-attack
-                       phase-5-attack
-                       phase-6-attack
-                       ])
+  (fn ability-list [phase tutorial?]
+    (local phase-abilities [shield
+                            attack-string
+                            phase-3-attack
+                            phase-4-attack
+                            phase-5-attack
+                            phase-6-attack])
+
+    (local abilities [fw-bw-move! wait-30-frames])
+
+    (if tutorial?
+        (. phase-abilities phase)
+        (do 
+          (for [i 1 phase]
+            (table.insert abilities (. phase-abilities i)))
+          abilities)))
 
   (fn damage [boss]
     (when (and (not boss.invulnerable)
@@ -453,6 +481,7 @@
       (when (= 0 boss.phases-left)
         (set boss.fighting? false)
         (set boss.defeated? true)
+        (increase-current-phase!)
         (set current-strategy (coroutine.create move-to-start-defeat))
         (each [_ e (ipairs boss.world.entities)]
           (when (= e.type :projectile)
@@ -470,7 +499,8 @@
     (when (and boss.fighting?
                (or (not current-strategy)
                    (= :dead (coroutine.status current-strategy))))
-      (let [random-ability (. ability-list (math.random (length ability-list)))]
+      (let [abilities (ability-list (phase->number current-phase) false)
+            random-ability (.  abilities (math.random (length abilities)))]
         (set current-strategy (coroutine.create random-ability))))
 
     (when current-strategy 
@@ -840,28 +870,32 @@
              (cls 1)
              (print current-phase))})
 
+(fn make-main-menu-scene []
+  {:input (fn []
+            (when (btn 4)
+              (scenes.set-scene! ((. scenes :scene-list :make-pre-boss-scene)))))
+   :update (fn [] true)
+   :render (fn []
+             (cls 1)
+             (print "What is goodness?" 20 20 8 false 2)
+             (print "Play" 40 70 8 false 1)
+             (tri 32 66 32 78 38 72 8))})
+
 (scenes.add-scene! :make-dialogue-scene dialogue.make-dialogue-scene)
-(scenes.add-scene! :make-transition-screen dialogue.make-dialogue-scene)
+(scenes.add-scene! :make-main-menu-scene make-main-menu-scene)
+(scenes.add-scene! :make-transition-screen make-transition-screen)
 (scenes.add-scene! :make-pre-boss-scene make-pre-boss-scene)
 (scenes.add-scene! :make-boss-scene make-boss-scene)
 
-(local main-menu
-       {:input (fn [] true)
-        :update (fn [] true)
-        :render (fn []
-                  (cls 1)
-                  (print "Hello world" 20 20 8 false 2))})
 
-(scenes.set-scene! (make-pre-boss-scene))
+(scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene)))
 
 (fn _G.BOOT []
   (decode-rle bg)
-  (decode-rle bg-no-pole)
-  )
+  (decode-rle bg-no-pole))
 
 (fn _G.TIC []
-  (scenes.run-scenes!)
-  )
+  (scenes.run-scenes!))
 
 ;; <TILES>
 ;; 001:0111111111555555188888881855555518111111181171111811711118117111
