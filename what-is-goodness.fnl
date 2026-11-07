@@ -56,11 +56,12 @@
   (. (. animator.animation 1) (+ 1 animator.frame)))
 
 (fn set-animation! [animator animation]
-  (doto animator
-    (tset :frame 0)
-    (tset :frame-timer 0)
-    (tset :animation animation)
-    (tset :finished? false)))
+  (when (not= animator.animation animation)
+    (doto animator
+      (tset :frame 0)
+      (tset :frame-timer 0)
+      (tset :animation animation)
+      (tset :finished? false))))
 
 (fn update-animation! [animator]
   (when (and (not animator.finished?) animator.animation)
@@ -266,8 +267,8 @@
  )
 
 (module boss
-  (local run-animation (make-animation [1 3] 2 2 20 true))
-  (local shield-animation (make-animation [2] 2 2 20 true))
+  (local run-animation (make-animation [32 34] 2 2 20 true))
+  (local shield-animation (make-animation [36] 2 2 20 true))
   (local speed 1)
   (local boss-phase-hp 2)
   (var current-strategy nil)
@@ -560,9 +561,11 @@
   (local speed 1.5)
   (local gravity 0.2)
   (local roll-speed 3)
-  (local run-animation (make-animation [1 3] 2 2 20 true))
-  (local block-animation (make-animation [5] 2 2 20 false))
-  (local roll-animation (make-animation [7 9 11 1] 2 2 5 true))
+  (local run-animation (make-animation [6 8] 2 2 10 true))
+  (local idle-animation (make-animation [2] 2 2 20 true))
+  (local roll-animation (make-animation [66 68 70 72] 2 2 5 true))
+  (local attack-animation (make-animation [4] 2 2 5 true))
+  (local jump-animation (make-animation [10] 2 2 5 true))
   (local slash-animation (make-animation [256 257 258 259 260 261 262] 1 2 1 false))
   (var current-routine nil)
 
@@ -609,48 +612,57 @@
       :type :player-slash}))
 
   (fn move-player-x! [player pos?]
-    (when (and (not player.blocking?)
-               (not player.rolling?))
+    (when (not= player.state :rolling)
       (let [new-x (+ player.x (* speed (if pos? 1 -1)))]
+        (when (and player.grounded?
+                   (not= player.state :running)
+                   (not= player.state :attacking))
+          (tset player :state :running))
         (tset player :direction (if pos? :right :left))
         (tset player :x new-x))))
 
   (fn jump! [player]
     (when (and player.grounded?
-               (not player.blocking?)
-               (not player.rolling?)) 
-      (tset player :grounded? false)
-      (tset player :y (- player.y 1))
-      (tset player :vy jump-force)))
+               (not= player.state :rolling)) 
+      (doto player
+        (tset :state :jumping)
+        (tset :grounded? false)
+        (tset :y (- player.y 1))
+        (tset :vy jump-force))))
 
   (fn dodge-roll! [player roll?]
-    (when (and (not player.blocking?)
-               (not player.rolling?))
-      (if roll?
-          (let [roll-dir roll?]
-            (set-animation! player.animator roll-animation)
-            (doto player 
-              (tset :rolling? [roll-dir 25])
-              (tset :vy -0.5)))
-          
-          (do 
-            (set player.blocking? 40)
-            (set-animation! player.animator block-animation)))))
+    (when (not= player.state :rolling)
+      (let [roll-dir roll?]
+        (doto player 
+          (tset :state :rolling)
+          (tset :rolling-info [roll-dir 25])
+          (tset :vy -0.5)))))
 
   (fn attack! [player]
-    (when (and (not player.blocking?)
-               (not player.rolling?))
-      (set player.attacking? true)
+    (when (not player.rolling?)
+      (set player.state :attacking)
+      (set player.attack-timer 8)
       (spawn-slash player)))
 
   (fn update-player! [player pos?]
     (when current-routine
       (coroutine.resume current-routine player))
 
+    (set-animation!
+     player.animator
+     (case player.state
+       :running run-animation
+       :jumping jump-animation
+       :idle idle-animation
+       :attacking attack-animation
+       :rolling roll-animation))
+
     (when (< player.y ground-y)
       (set player.vy (+ player.vy gravity)))
 
     (when (<= ground-y player.y)
+      (when (not player.grounded?)
+        (set-animation! player.animator idle-animation))
       (set player.grounded? true)
       (set player.y ground-y)
       (set player.vy 0))
@@ -667,20 +679,20 @@
         (set player.health (- player.health 1))
         (set player.invulnerable 30)))
 
-    (when player.blocking?
-      (set player.blocking? (- player.blocking? 1))
-      (when (= player.blocking? 0)
-        (set player.blocking? nil)
-        (set-animation! player.animator run-animation)))
+    (when (= player.state :attacking)
+      (set player.attack-timer (- player.attack-timer 1))
+      (when (= player.attack-timer 0)
+        (set player.state :idle)
+        (set-animation! player.animator idle-animation)))
 
-    (when player.rolling?
-      (let [rolling player.rolling?
-            [dir time] rolling]
+    (when (= player.state :rolling)
+      (let [rolling player.rolling-info
+            [dir time] player.rolling-info]
         (set (. rolling 2) (- time 1))
         (set player.x (+ player.x (if (= dir :left) (- roll-speed) roll-speed)))
         (when (= time 0)
-          (set player.rolling? nil)
-          (set-animation! player.animator run-animation))))
+          (set player.state :idle)
+          (set player.rolling-info nil))))
 
     (update-animation! player.animator)
     (set player.y (+ player.vy player.y)))
@@ -701,6 +713,11 @@
     (when enabled? 
       (when (btn 0)
         (jump! player))
+      (when (and (= player.state :running)
+                 (not (btn 3))
+                 (not (btn 2)))
+        (set player.state :idle)
+        (set-animation! player.animator idle-animation))
       (when (btn 3)
         (move-player-x! player true))
       (when (btn 2)
@@ -717,7 +734,9 @@
      :health 3
      :type :player
      :width 16 :height 16
-     :direction :right :grounded? false
+     :state :idle
+     :direction :right
+     :grounded? false
      :animator (make-animator run-animation)
      :update update-player!
      :render render-player!})
