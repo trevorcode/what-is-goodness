@@ -93,6 +93,8 @@
         (set pixel-address (+ 1 pixel-address)))))
   address-start)
 
+(var current-phase :phase1)
+
 (module worlds
   (var next-id 0)
 
@@ -265,7 +267,7 @@
 
   (fn shield [boss]
     (set-animation! boss.animator shield-animation)
-    (wait 10)
+    ((wait 10) boss)
     (table.insert
      other-coroutines
      (coroutine.create 
@@ -275,7 +277,7 @@
         (set boss.shielding? false)))))
 
   (fn phase-3-attack [boss]
-    (wait 50)
+    ((wait 50) boss)
 
     (local start-x boss.x)
     (local start-y boss.y)
@@ -300,8 +302,6 @@
     )
 
 (fn phase-4-attack [boss]
-    (wait 50)
-
     (local start-x boss.x)
     (local start-y boss.y)
 
@@ -328,7 +328,6 @@
     )
 
 (fn phase-5-attack [boss]
-    (wait 50)
 
     (local start-x boss.x)
     (local start-y boss.y)
@@ -355,7 +354,6 @@
     )
 
 (fn phase-6-attack [boss]
-    (wait 50)
     (local start-x boss.x)
     (local start-y boss.y)
 
@@ -395,7 +393,6 @@
     (set boss.y start-y))
 
   (fn attack-string [boss]
-    (wait 50)
     (for [i 1 8]
       (worlds.add boss.world (projectiles.make-slash (- boss.x 20) (- boss.y 16)))
       ((wait 50) boss)
@@ -405,8 +402,7 @@
 
   (fn fw-bw-move! [boss]
     (set-animation! boss.animator run-animation)
-    ((move! 50) boss)
-    ((wait 50) boss)
+    ((move! 140) boss)
     ((move! 200) boss))
 
   (fn wait-30-frames [boss]
@@ -469,6 +465,9 @@
       (circb (+ boss.x 7) (+ boss.y 7) 12 14)))
 
   (fn make-boss []
+    (set current-strategy nil)
+    (set other-coroutines [])
+
     {:x 200 :y 110
      :type :boss
      :width 16 :height 16
@@ -734,7 +733,7 @@
             50
             (fn []
               (scenes.push-scene! (dialogue.make-dialogue-scene
-                                   :phase1
+                                   current-phase
                                    (fn []
                                      (set fight-state :started)
                                      (set boss.fighting? true))))))
