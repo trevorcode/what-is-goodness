@@ -167,7 +167,7 @@
  (fn make-shield-projectile [x y target]
    {:x x :y y
     :dx 0 :dy -5
-    :width 8 :height 8
+    :width 6 :height 6
     :type :projectile
     :time 0
     :target target
@@ -187,7 +187,7 @@
 (fn make-phase-3-projectile [x y target]
    {:x x :y y
     :dx 0 :dy 0
-    :width 8 :height 8
+    :width 6 :height 6
     :type :projectile
     :time 0
     :target target
@@ -207,7 +207,7 @@
 (fn make-fire [x y]
    {:x x :y y
     :dx 0 :dy 1
-    :width 8 :height 8
+    :width 6 :height 6
     :type :projectile
     :time 0
     :update (fn [self]
@@ -250,6 +250,7 @@
   (local run-animation (make-animation [1 3] 2 2 20 true))
   (local shield-animation (make-animation [2] 2 2 20 true))
   (local speed 1)
+  (local boss-phase-hp 2)
   (var current-strategy nil)
   (var other-coroutines [])
 
@@ -384,7 +385,7 @@
         (strike:remove)
         ((wait 20) boss)))
 
-    (for [i 1 10]
+    (for [i 1 6]
       (if (= 1 (math.random 2))
           (strike-across)
           (strike-down))
@@ -404,6 +405,23 @@
     (set-animation! boss.animator run-animation)
     ((move! 140) boss)
     ((move! 200) boss))
+
+  (fn move-to-start-defeat [boss]
+    (local start-x boss.x)
+    (local start-y boss.y)
+    (set-animation! boss.animator run-animation)
+    (for [i 1 50]
+      (set boss.x (lerp start-x 200 (ease-in-out (/ i 50))))
+      (set boss.y (lerp start-y 110 (ease-in-out (/ i 50))))
+      (coroutine.yield))
+    (scenes.push-scene! 
+     ((. scenes :scene-list :make-dialogue-scene)
+      :phase1-win
+      (fn []
+        (scenes.set-scene!
+         ((. scenes :scene-list :make-pre-boss-scene))))))
+
+    )
 
   (fn wait-30-frames [boss]
     ((wait 30) boss))
@@ -428,6 +446,17 @@
       (set boss.invulnerable (- boss.invulnerable 1))
       (when (= boss.invulnerable 0)
         (set boss.invulnerable nil)))
+
+    (when (< boss.health 0)
+      (set boss.health boss-phase-hp)
+      (set boss.phases-left (- boss.phases-left 1))
+      (when (= 0 boss.phases-left)
+        (set boss.fighting? false)
+        (set boss.defeated? true)
+        (set current-strategy (coroutine.create move-to-start-defeat))
+        (each [_ e (ipairs boss.world.entities)]
+          (when (= e.type :projectile)
+            (worlds.remove e)))))
 
     (each [_ e (ipairs boss.world.entities)]
       (when (and (= e.type :player-slash)
@@ -457,14 +486,18 @@
     (let [animator boss.animator
           [frames w h] animator.animation
           frame-id (animator-frame-id animator)]
+      (when boss.defeated?
+        (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) 8)))
       (if (and boss.invulnerable (= 0 (% (// boss.invulnerable 5) 2))) 
         nil
-        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h)))
+        (spr frame-id boss.x boss.y 0 1 (if (= boss.direction :left) 0 1) 0 w h))
+      (when boss.defeated?
+        (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) c))))
 
     (when boss.shielding?
       (circb (+ boss.x 7) (+ boss.y 7) 12 14)))
 
-  (fn make-boss []
+  (fn make-boss [phase]
     (set current-strategy nil)
     (set other-coroutines [])
 
@@ -474,8 +507,14 @@
      :direction :left
      :update update
      :render render
-     :health 10
-     :phases-left 6
+     :health boss-phase-hp
+     :phases-left (case phase
+                    :phase1 1
+                    :phase2 2
+                    :phase3 3
+                    :phase4 4
+                    :phase5 5
+                    :phase6 6)
      :animator (make-animator run-animation)})
 
   {: make-boss})
@@ -657,6 +696,8 @@
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is patience..."]]
+                 :phase1-win
+                 [[:boss "YOU WIN... PERFECT"]]
                  :phase2
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
@@ -718,7 +759,7 @@
 
 (fn make-boss-scene []
   (local player (player-module.make-player))
-  (local boss (boss.make-boss))
+  (local boss (boss.make-boss current-phase))
   (local world {:entities []
                 :boss boss
                 :player player})
@@ -792,6 +833,15 @@
              )}
   )
 
+(fn make-transition-screen []
+  {:input (fn [] true)
+   :update (fn [] true)
+   :render (fn []
+             (cls 1)
+             (print current-phase))})
+
+(scenes.add-scene! :make-dialogue-scene dialogue.make-dialogue-scene)
+(scenes.add-scene! :make-transition-screen dialogue.make-dialogue-scene)
 (scenes.add-scene! :make-pre-boss-scene make-pre-boss-scene)
 (scenes.add-scene! :make-boss-scene make-boss-scene)
 
