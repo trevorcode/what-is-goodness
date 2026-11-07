@@ -93,7 +93,7 @@
         (set pixel-address (+ 1 pixel-address)))))
   address-start)
 
-(var current-phase :phase1)
+(var current-phase :phase6)
 
 (fn increase-current-phase! []
   (set current-phase
@@ -364,7 +364,6 @@
 
     ((wait 80) boss)
     
-
     (let [cur-x boss.x
           cur-y boss.y]
       (for [i 1 50]
@@ -435,10 +434,18 @@
       (coroutine.yield))
     (scenes.push-scene! 
      ((. scenes :scene-list :make-dialogue-scene)
-      :phase1-win
+      (case (phase->number current-phase)
+        1 :phase1-win
+        2 :phase2-win
+        3 :phase3-win
+        4 :phase4-win
+        5 :phase5-win
+        6 :phase6-win)
       (fn []
-        (scenes.set-scene!
-         ((. scenes :scene-list :make-pre-boss-scene))))))
+        (when (< (phase->number current-phase) 6)
+          (increase-current-phase!)
+          (scenes.set-scene!
+           ((. scenes :scene-list :make-pre-boss-scene)))))))
 
     )
 
@@ -481,11 +488,10 @@
       (when (= 0 boss.phases-left)
         (set boss.fighting? false)
         (set boss.defeated? true)
-        (increase-current-phase!)
-        (set current-strategy (coroutine.create move-to-start-defeat))
         (each [_ e (ipairs boss.world.entities)]
           (when (= e.type :projectile)
-            (worlds.remove e)))))
+            (worlds.remove e)))
+        (set current-strategy (coroutine.create move-to-start-defeat))))
 
     (each [_ e (ipairs boss.world.entities)]
       (when (and (= e.type :player-slash)
@@ -733,29 +739,36 @@
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is faith..."]]
+                 :phase2-win
+                 [[:boss "Well done"]]
                  :phase3
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is knowledge..."]]
+                 :phase3-win
+                 [[:boss "Well done"]]
                  :phase4
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is mercy..."]]
-
+                 :phase4-win
+                 [[:boss "Nice Job"]]
                  :phase5
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is wisdom..."]]
-
+                 :phase5-win
+                 [[:boss "Sweet"]]
                  :phase6
                  [[:player "Do you know the way?"]
                   [:boss "I do not know the way"]
                   [:boss "Teh way"]
                   [:player "What is goodness..."]]
-
+                 :phase6-win
+                 [[:boss "Go, and take your justice"]]
                  :defeat
                  [[:player "... !"]
                   [:player "I must learn more..."]]
