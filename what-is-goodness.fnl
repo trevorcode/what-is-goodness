@@ -569,12 +569,11 @@
     ((wait 30) boss))
 
   (fn ability-list [phase tutorial?]
-    (local phase-abilities [
-                            ;; shield
-                            ;; attack-string
-                            ;; phase-3-attack
-                            ;; phase-4-attack
-                            ;; phase-5-attack
+    (local phase-abilities [shield
+                            attack-string
+                            phase-3-attack
+                            phase-4-attack
+                            phase-5-attack
                             phase-6-attack])
 
     (local abilities [fw-bw-move! wait-30-frames])
@@ -1176,7 +1175,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase6))
+  {:init (fn [] (set current-phase :phase1))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
