@@ -94,7 +94,7 @@
         (set pixel-address (+ 1 pixel-address)))))
   address-start)
 
-(var current-phase :phase1)
+(var current-phase :phase6)
 
 (fn increase-current-phase! []
   (set current-phase
@@ -447,7 +447,9 @@
           (increase-current-phase!)
           (scenes.push-scene!
            ((. scenes :scene-list :make-transition-screen)
-            (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene)))))))))))
+            (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene)))))))
+        (when (= (phase->number current-phase) 6)
+          (set boss.world.phase-6-win? true))))))
 
   (fn wait-30-frames [boss]
     ((wait 30) boss))
@@ -846,6 +848,9 @@
              (each [_ e (ipairs world.entities)]
                (e:update))
 
+             (when (and (< 240 player.x) (?. world :phase-6-win?))
+               (scenes.set-scene! ((. scenes :scene-list :make-justice-scene))))
+             
              (when (<= player.health 0)
                (set fight-state :defeated)
                (set boss.fighting? false)
@@ -1038,7 +1043,7 @@
 (scenes.add-scene! :make-justice-scene make-justice-scene)
 
 
-(scenes.set-scene! ((. scenes :scene-list :make-justice-scene)))
+(scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene)))
 
 (fn _G.BOOT []
   (decode-rle bg)
