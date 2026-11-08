@@ -1110,6 +1110,8 @@
   (local world {:entities []
                 :player player})
   (worlds.add world player)
+  (local fox-animation (make-animation [40 42 44 46] 2 2 20 true))
+  (local fox (make-animator fox-animation))
 
   (var started? false)
 
@@ -1132,6 +1134,7 @@
             (fn [] (set started? true)))
            )
    :update (fn []
+             (update-animation! fox)
              (each [_ e (ipairs world.entities)]
                (e:update))
              (when (< 240 player.x)
@@ -1140,11 +1143,15 @@
    :render (fn []
              (cls 5)
              (memcpy 0 bg-no-pole-start-address 16320)
+             (let [animator fox
+                   [frames w h] animator.animation
+                   frame-id (animator-frame-id animator)]
+               (spr frame-id 70 100 0 1 0 0 w h))
              (each [_ e (ipairs world.entities)]
                (e:render))
+             
              (render-health player.health)   
-             (render-phase-progress current-phase)
-             )}
+             (render-phase-progress current-phase))}
   )
 
 (fn make-transition-screen [on-swap]
