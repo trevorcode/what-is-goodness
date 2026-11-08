@@ -127,6 +127,15 @@
   (for [i 1 health]
     (spr 290 (+ -1 (* i 8)) 2 0 1 0 0 1 1)))
 
+(fn make-arrow [x y]
+  {:timer 0
+   :enabled? false
+   :update (fn [self]
+             (set self.timer (% (+ 1 self.timer) 60)))
+   :render (fn [self]
+             (when (and self.enabled? (= 0 (// self.timer 30)))
+               (spr 74 x y 0 1 0 0 2 2)))})
+
 (module worlds
   (var next-id 0)
 
@@ -544,7 +553,7 @@
   (fn move-to-start-defeat [boss]
     (local start-x boss.x)
     (local start-y boss.y)
-    (set-animation! boss.animator run-animation)
+    (set-animation! boss.animator idle-animation)
     (for [i 1 50]
       (set boss.x (lerp start-x 200 (ease-in-out (/ i 50))))
       (set boss.y (lerp start-y 110 (ease-in-out (/ i 50))))
@@ -565,6 +574,7 @@
            ((. scenes :scene-list :make-transition-screen)
             (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene)))))))
         (when (= (phase->number current-phase) 6)
+          (set boss.world.arrow.enabled? true)
           (set boss.world.phase-6-win? true))))))
 
   (fn wait-30-frames [boss]
@@ -960,7 +970,8 @@
   (local boss (boss.make-boss current-phase))
   (local world {:entities []
                 :boss boss
-                :player player})
+                :player player
+                :arrow (make-arrow 214 20)})
   (worlds.add world player)
   (worlds.add world boss)
   (var fight-state :not-started)
@@ -980,6 +991,7 @@
    :update (fn []
              (each [_ e (ipairs world.entities)]
                (e:update))
+             (world.arrow:update)
 
              (when (and (< 240 player.x) (?. world :phase-6-win?))
                (scenes.set-scene! ((. scenes :scene-list :make-justice-scene))))
@@ -1002,6 +1014,7 @@
                  (memcpy 0 bg-start-address 16320))
              (each [_ e (ipairs world.entities)]
                (e:render))
+             (world.arrow:render)
 
              (render-health player.health))})
 
@@ -1115,6 +1128,8 @@
   (local fox (make-animator fox-animation))
 
   (var started? false)
+  (local arrow (make-arrow 214 20))
+  (set arrow.enabled? true)
 
   (fn render-phase-progress [phase]
     (let [number (phase->number phase)
@@ -1136,6 +1151,7 @@
            )
    :update (fn []
              (update-animation! fox)
+             (arrow:update)
              (each [_ e (ipairs world.entities)]
                (e:update))
              (when (< 240 player.x)
@@ -1150,7 +1166,7 @@
                (spr frame-id 70 100 0 1 0 0 w h))
              (each [_ e (ipairs world.entities)]
                (e:render))
-             
+             (arrow:render)
              (render-health player.health)   
              (render-phase-progress current-phase))}
   )
@@ -1183,7 +1199,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase1))
+  {:init (fn [] (set current-phase :phase6))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
@@ -1278,6 +1294,8 @@
 ;; 071:1000000022220000333330003323330033323300333236003333336033333660
 ;; 072:0000000200003323000333330063383300638333006383330763333307663333
 ;; 073:2000000022110000322210003332210033332210333332103333321033333221
+;; 074:0000000100000001000000010000000111111111188888881888888818888888
+;; 075:1000000081000000881000008881000088881000888881008888881088888881
 ;; 080:0001777700141777001416770013416700013416001223410012144300010111
 ;; 081:4424471017776771117717717717154174515410113311003133310011111000
 ;; 082:0663333306333333006323330033233300333233000333330000222200000001
@@ -1288,6 +1306,8 @@
 ;; 087:3333660033336700333667003366700066670000777000000000000000000000
 ;; 088:0076333300763333007663330007663300007666000007760000000000000000
 ;; 089:3333332133333320333323203322332033333300636330006600000000000000
+;; 090:1888888818888888188888881111111100000001000000010000000100000001
+;; 091:8888888188888810888881008888100088810000881000008100000010000000
 ;; </TILES>
 
 ;; <SPRITES>
