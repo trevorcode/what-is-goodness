@@ -279,8 +279,10 @@
  )
 
 (module boss
+  (local idle-animation (make-animation [32] 2 2 20 true))
   (local run-animation (make-animation [32 34] 2 2 20 true))
-  (local shield-animation (make-animation [36] 2 2 20 true))
+  (local jump-animation (make-animation [38 34] 2 2 20 true))
+  (local attack-animation (make-animation [36] 2 2 20 true))
   (local speed 1)
   (local boss-phase-hp 2)
   (var current-strategy nil)
@@ -299,14 +301,14 @@
           (coroutine.yield)))))
 
   (fn shield [boss]
-    (set-animation! boss.animator shield-animation)
+    (set-animation! boss.animator attack-animation)
     ((wait 10) boss)
     (table.insert
      other-coroutines
      (coroutine.create 
       (fn [boss]
         (set boss.shielding? true)
-        ((wait 200) boss)
+        ((wait 300) boss)
         (set boss.shielding? false)))))
 
   (fn phase-3-attack [boss]
@@ -315,6 +317,7 @@
     (local start-x boss.x)
     (local start-y boss.y)
 
+    (set-animation! boss.animator jump-animation)
     (for [i 1 50]
       (set boss.y (lerp start-y (- start-y 50) (ease-in-out (/ i 50))))
       (coroutine.yield))
@@ -332,6 +335,8 @@
     (for [i 1 50]
       (set boss.y (lerp (- start-y 50) start-y (ease-in-out (/ i 50))))
       (coroutine.yield))
+    (set-animation! boss.animator idle-animation)
+    ((wait 60) boss)
     )
 
 (fn phase-4-attack [boss]
@@ -339,25 +344,31 @@
     (local start-y boss.y)
 
     (local strike (projectiles.make-strike boss))
-    (worlds.add boss.world strike)
+    
     (for [i 1 50]
       (set boss.x (lerp start-x (+ start-x 15) (ease-in-out (/ i 50))))
       (coroutine.yield))
 
     ((wait 80) boss)
-
+    (set-animation! boss.animator attack-animation)
+    (worlds.add boss.world strike)
     (let [cur-x boss.x]
       (for [i 1 20]
         (set boss.x (lerp cur-x 15 (/ i 20)))
         (coroutine.yield)))
 
+    (set boss.direction :right)
+    (set-animation! boss.animator idle-animation)
     ((wait 80) boss)
-
+    (set-animation! boss.animator attack-animation)
     (let [cur-x boss.x]
       (for [i 1 20]
         (set boss.x (lerp cur-x start-x (/ i 20)))
         (coroutine.yield)))
     (strike:remove)
+    (set-animation! boss.animator idle-animation)
+    (set boss.direction :left)
+    ((wait 120) boss)
     )
 
 (fn phase-5-attack [boss]
@@ -365,6 +376,7 @@
     (local start-x boss.x)
     (local start-y boss.y)
 
+    (set-animation! boss.animator jump-animation)
     (for [i 1 50]
       (set boss.x (lerp start-x 110 (ease-in-out (/ i 50))))
       (set boss.y (lerp start-y 50 (ease-in-out (/ i 50))))
@@ -382,7 +394,9 @@
       (for [i 1 50]
         (set boss.x (lerp cur-x start-x (ease-in-out (/ i 50))))
         (set boss.y (lerp cur-y start-y (ease-in-out (/ i 50))))
-        (coroutine.yield)))
+        (coroutine.yield))
+      ((wait 120) boss)
+      (set-animation! boss.animator idle-animation))
     )
 
 (fn phase-6-attack [boss]
@@ -406,6 +420,7 @@
       (local r (math.random 2))
       (set boss.x (if (= r 1) 216 0))
       (local target-x (if (= r 1) 0 216))
+      (when (= r 1) (set boss.direction :right))
       ((wait 40) boss)
       (let [cur-x boss.x
             strike (projectiles.make-strike boss)]
@@ -414,7 +429,8 @@
           (set boss.x (lerp cur-x target-x (ease-in (/ i 50))))
           (coroutine.yield))
         (strike:remove)
-        ((wait 20) boss)))
+        ((wait 20) boss)
+        (set boss.direction :left)))
 
     (for [i 1 6]
       (if (= 1 (math.random 2))
@@ -422,13 +438,17 @@
           (strike-down))
       )
     (set boss.x start-x)
-    (set boss.y start-y))
+    (set boss.y start-y)
+    ((wait 120) boss)
+    (set-animation! boss.animator idle-animation))
 
   (fn attack-string [boss]
     (for [i 1 8]
+      (set-animation! boss.animator attack-animation)
       (worlds.add boss.world (projectiles.make-slash (- boss.x 20) (- boss.y 16)))
-      ((wait 50) boss)
-      ((move! (- 240 (* i 20))) boss))
+      ((wait 30) boss)
+      (set-animation! boss.animator run-animation)
+      ((move! (- 240 (* i 10))) boss))
     
     ((move! 200) boss))
 
