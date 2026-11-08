@@ -564,11 +564,14 @@
 
         (damage boss)))
 
+    (when (= 0 (length boss.abilities))
+      (set boss.abilities (ability-list (phase->number current-phase) false)))
+
     (when (and boss.fighting?
                (or (not current-strategy)
                    (= :dead (coroutine.status current-strategy))))
-      (let [abilities (ability-list (phase->number current-phase) false)
-            random-ability (.  abilities (math.random (length abilities)))]
+      (let [n (math.random (length boss.abilities))
+            random-ability (table.remove boss.abilities n)]
         (set current-strategy (coroutine.create random-ability))))
 
     (when current-strategy 
@@ -606,6 +609,7 @@
      :update update
      :render render
      :health boss-phase-hp
+     :abilities []
      :phases-left (case phase
                     :phase1 1
                     :phase2 2
