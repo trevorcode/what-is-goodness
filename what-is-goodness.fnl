@@ -336,7 +336,7 @@
       (set boss.y (lerp (- start-y 50) start-y (ease-in-out (/ i 50))))
       (coroutine.yield))
     (set-animation! boss.animator idle-animation)
-    ((wait 60) boss)
+    ((wait 180) boss)
     )
 
 (fn phase-4-attack [boss]
@@ -359,13 +359,16 @@
 
     (set boss.direction :right)
     (set-animation! boss.animator idle-animation)
+    (strike:remove)
     ((wait 80) boss)
     (set-animation! boss.animator attack-animation)
+    (local strike2 (projectiles.make-strike boss))
+    (worlds.add boss.world strike2)
     (let [cur-x boss.x]
       (for [i 1 20]
         (set boss.x (lerp cur-x start-x (/ i 20)))
         (coroutine.yield)))
-    (strike:remove)
+    (strike2:remove)
     (set-animation! boss.animator idle-animation)
     (set boss.direction :left)
     ((wait 120) boss)
@@ -420,7 +423,8 @@
       (local r (math.random 2))
       (set boss.x (if (= r 1) 216 0))
       (local target-x (if (= r 1) 0 216))
-      (when (= r 1) (set boss.direction :right))
+      (set boss.direction
+           (if (= r 1) :left :right))
       ((wait 40) boss)
       (let [cur-x boss.x
             strike (projectiles.make-strike boss)]
@@ -850,8 +854,8 @@
                      fg-color (if (= speaker :player) 1 8)]
                  (if (= speaker :player)
                      (when (not= phase :defeat)
-                       (draw-bubble 40 90))
-                     (draw-bubble 200 80))
+                       (draw-bubble 45 90))
+                     (draw-bubble 195 90))
                  (rect 10 10 220 40 bg-color)
                  (rectb 10 10 220 40 fg-color)
                  (with-color fg-color
@@ -1078,10 +1082,19 @@
                     (if (< elapsed (/ duration 2))
                      (lerp 136 0 (ease-in-out (/ elapsed (/ duration 2))))
                      (lerp 0 136 (ease-in-out (/ (- elapsed (/ duration 2)) (/ duration 2))))))
-             (rect 0 y 240 136 2))})
+             
+             
+             (rect 0 y 240 136 1)
+             (rectb 0 y 240 136 8 )
+             (spr 288 0 y 0 1 0 0 2 2)
+             (spr 288 0 (+ 120 y) 0 1 1 2 2 2)
+             (spr 288 224 y 0 1 1 0 2 2)
+             (spr 288 224 (+ 120 y) 0 1 0 2 2 2)
+             )})
 
 (fn make-main-menu-scene []
-  {:input (fn []
+  {:init (fn [] (set current-phase :phase1))
+   :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
                ((. scenes :scene-list :make-transition-screen)
