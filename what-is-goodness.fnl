@@ -300,6 +300,7 @@
 
   (local blast-charge-animation (make-animation [320 321 322 323] 1 1 2 true))
   (local blast-attack-animation (make-animation [324 326] 2 2 2 true))
+  (local blast-explode-animation (make-animation [330 332 334 352] 2 2 8 false))
 
   (fn make-blast [boss]
     (local speed 5)
@@ -332,8 +333,31 @@
                  )
                )})
 
+  (fn make-blast-strike [boss]
+    {:x (+ 4 boss.x) :y (+ 6 boss.y)
+     :width 8 :height 16
+     :type :projectile
+     :charging 30
+     :direction boss.direction
+     :animator (make-animator blast-charge-animation)
+     :remove (fn [self]
+               (worlds.remove self))
+     :update (fn [self]
+               (update-animation! self.animator)
+               (set self.x (+ 4 boss.x))
+               (set self.y (+ 6 boss.y))
+               (when self.charging
+                 (set self.charging (- self.charging 1))
+                 (when (= 0 self.charging)
+                   (set-animation! self.animator blast-explode-animation))))
+     :render (fn [self]
+               (let [animator self.animator
+                     [frames w h] animator.animation
+                     frame-id (animator-frame-id animator)]
+                 (spr frame-id (- self.x (// (* 8 w) 2)) (- self.y (// (* 8 h) 2)) 0 2 (if (= self.direction :left) 1 0) 0 w h)))})
+
  {: make-shield-projectile : make-slash : make-phase-3-projectile
-  : make-strike : make-fire : make-blast}
+  : make-strike : make-fire : make-blast : make-blast-strike}
  )
 
 (module boss
@@ -464,18 +488,18 @@
     (local start-x boss.x)
     (local start-y boss.y)
 
-    (fn strike-down []
+    (fn blast-down []
       (set boss.x boss.world.player.x)
       (set boss.y 40)
       ((wait 20) boss)
       (let [cur-y boss.y
-            strike (projectiles.make-strike boss)]
+            strike (projectiles.make-blast-strike boss)]
         (worlds.add boss.world strike)
         (for [i 1 30]
           (set boss.y (lerp cur-y start-y (ease-in (/ i 30))))
           (coroutine.yield))
-        (strike:remove)
-        ((wait 20) boss)))
+        ((wait 20) boss)
+        (strike:remove)))
 
     (fn blast-across []
       (local r (math.random 2))
@@ -493,7 +517,7 @@
     (for [i 1 6]
       (if (= 1 (math.random 2))
           (blast-across)
-          (strike-down))
+          (blast-down))
       )
     (set boss.x start-x)
     (set boss.y start-y)
@@ -1312,12 +1336,24 @@
 ;; 071:0000000000000000000000009000000089900000889000008889000089890000
 ;; 072:0000000000000000000000000000000000000000000000009999999988888888
 ;; 073:0000000000000000000000000000000000000000000000009999999988888888
+;; 074:0000000000000000000000000000000000000000000900000000090000009088
+;; 075:0000000000000000000000000000000000000000000000000900000000000000
+;; 076:0900009000000000099000000988000000080089000900000980090000809089
+;; 077:0000090000900000080000000008800000000000000000090900000000090000
+;; 078:0900009000000000099000000900000000000000000000000900000000000000
+;; 079:0000090000900000080000000000000000000000000000090000000000000000
 ;; 084:8988988988888898999988880009889890909999000000000099009090000000
 ;; 085:8989000088990000889000008900000090000000000000000000000000000000
 ;; 086:8898898888888888999988890009888800009999000000009000900000000000
 ;; 087:8889000088990000889000009890000099000000000000000000000000000000
 ;; 088:8888888888888888999999990000000000000000000000000000000000000000
 ;; 089:8888888888888888999999990000000000000000000000000000000000000000
+;; 090:0000008800000909000900000000000000000000000000000000000000000000
+;; 091:0000000000000000090000000000000000000000000000000000000000000000
+;; 092:0900008800800909008900000000000009000890000088880090900000000000
+;; 093:0000088000008000090000000000009000000000000080000900090900000009
+;; 094:0000000000800000000000000000000009000000000088880090900000000000
+;; 095:0000008000000000000000000000009000000000000080000900090900000009
 ;; </SPRITES>
 
 ;; <WAVES>
