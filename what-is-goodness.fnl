@@ -101,7 +101,7 @@
         (set pixel-address (+ 1 pixel-address)))))
   address-start)
 
-(var current-phase :phase2)
+(var current-phase :phase1)
 
 (fn increase-current-phase! []
   (set current-phase
@@ -199,7 +199,7 @@
  (fn make-shield-projectile [x y target]
    {:x x :y y
     :dx 0 :dy -5
-    :width 6 :height 6
+    :width 5 :height 5
     :type :projectile
     :time 0
     :target target
@@ -214,12 +214,12 @@
               (when (< 180 self.time)
                 (worlds.remove self))
               )
-    :render (fn [self] (circ self.x self.y 4 14))})
+    :render (fn [self] (circ (+ self.x 2) (+ self.y 2) 4 14))})
 
 (fn make-phase-3-projectile [x y target]
    {:x x :y y
     :dx 0 :dy 0
-    :width 6 :height 6
+    :width 5 :height 5
     :type :projectile
     :time 0
     :target target
@@ -234,7 +234,9 @@
               (when (< 180 self.time)
                 (worlds.remove self))
               )
-    :render (fn [self] (circ self.x self.y 4 12))})
+    :render (fn [self]
+              (circ (+ self.x 2) (+ self.y 2) 4 12)
+              (circ (+ self.x 2) (+ self.y 2) 2 1))})
 
 (fn make-fire [x y]
    {:x x :y y
@@ -249,7 +251,9 @@
 
               (when (< 130 self.time)
                 (worlds.remove self)))
-    :render (fn [self] (circ self.x self.y 4 10))})
+    :render (fn [self]
+              (circ (+ self.x 2) (+ self.y 2) 4 10)
+              (circ (+ self.x 2) (+ self.y 2) 2 8))})
 
   (local boss-slash-animation (make-animation [263 264 265 266 267 268 269 270] 1 2 2 false))
 
@@ -1104,7 +1108,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase2))
+  {:init (fn [] (set current-phase :phase3))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
