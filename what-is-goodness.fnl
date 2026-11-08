@@ -101,7 +101,7 @@
         (set pixel-address (+ 1 pixel-address)))))
   address-start)
 
-(var current-phase :phase6)
+(var current-phase :phase2)
 
 (fn increase-current-phase! []
   (set current-phase
@@ -251,17 +251,28 @@
                 (worlds.remove self)))
     :render (fn [self] (circ self.x self.y 4 10))})
 
- (fn make-slash [x y]
-   (local slash-time 8)
-   {:x x :y y
-    :width 8 :height 36
-    :type :projectile
-    :time 0
-    :update (fn [self]
-              (set self.time (+ 1 self.time))
-              (when (< 8 self.time)
-                (worlds.remove self)))
-    :render (fn [self] (rect self.x self.y self.width self.height 13))})
+  (local boss-slash-animation (make-animation [263 264 265 266 267 268 269 270] 1 2 2 false))
+
+  (fn make-slash [x y]
+    (local slash-time 8)
+    {:x x :y y
+     :width 8 :height 36
+     :animator (make-animator boss-slash-animation)
+     :type :projectile
+     :update (fn [self]
+               (update-animation! self.animator)
+               (when self.animator.finished?
+                 (worlds.remove self)))
+     :render (fn [self]
+               (let [animator self.animator
+                     [frames w h] animator.animation
+                     frame-id (animator-frame-id animator)]
+                 (spr frame-id
+                      (- self.x 4) 
+                      self.y
+                      0 2
+                      1 
+                      0 w h)))})
 
  (fn make-strike [boss]
    {:x boss.x :y boss.y
@@ -1093,7 +1104,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase1))
+  {:init (fn [] (set current-phase :phase2))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
@@ -1206,10 +1217,24 @@
 ;; 002:0000000008800000008800000008800000008800000088000000880000008800
 ;; 003:0000000000800000008800000008800000008800000088000000880000008800
 ;; 004:0000000000000000000000000000000000000000000000000000800000008800
+;; 007:000000000dd0000000dd0000000d000000000000000000000000000000000000
+;; 008:000000000dd0000000dd0000000d0000000dd0000000d0000000dd000000dd00
+;; 009:000000000dd0000000dd0000000d0000000dd0000000d0000000dd000000dd00
+;; 010:000000000dd0000000dd0000000d0000000dd0000000d0000000dd000000dd00
+;; 011:000000000dd00dd000dddd00000dd00000ddd00000d0d0000000dd000000dd00
+;; 012:000000000dd00dd000dddd00000dd00000ddd00000d0d0000dd0dd000d00dd00
+;; 013:000000000dd00dd000dddd00000dd00000ddd00000d0d0000dd0dd000d00dd00
+;; 014:000000000dd00dd000dddd00000dd00000ddd00000d0d0000dd0dd000d00dd00
 ;; 018:0000880000008800000088000008800000088000000000000000000000000000
 ;; 019:0000880000008800000088000008800000088000008800000880000000000000
 ;; 020:0000880000008000000080000008800000080000008800000880000000000000
 ;; 021:0000000000000000000000000008800000080000008800000880000000000000
+;; 025:00000d000000dd00000dd000000dd00000dd0000000000000000000000000000
+;; 026:00000d000000dd00000dd000000dd00000dd000000d000000d000000d0000000
+;; 027:00000d000000dd00000dd000000dd00000dd000000d000000d000000d0000000
+;; 028:dd000d00dd00dd000d0dd000000dd00000dd000000d000000d000000d0000000
+;; 029:dd000d00dd00dd000d0dd0000d0dd0000ddd000000dd00000d000000d0000000
+;; 030:dd000d00dd00dd000d0dd0000d0dd0000ddd000000ddd0000d00dd00d0000d00
 ;; 032:8888888880000000808088888080800080808088208080808880808880008000
 ;; 033:8888888800000000880880000800000008000000080000008800000000000000
 ;; 034:0000000001101100111111101111111011111110011111000011100000010000
