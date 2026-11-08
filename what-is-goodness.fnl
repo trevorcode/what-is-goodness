@@ -277,17 +277,26 @@
                       0 2
                       1 
                       0 w h)))})
-
- (fn make-strike [boss]
-   {:x boss.x :y boss.y
-    :width 8 :height 24
-    :type :projectile
-    :remove (fn [self]
-              (worlds.remove self))
-    :update (fn [self]
-              (set self.x boss.x)
-              (set self.y boss.y))
-    :render (fn [self] (rect self.x self.y self.width self.height 11))})
+  (local boss-strike-animation (make-animation [297 298] 1 2 2 true))
+  (fn make-strike [boss]
+    {:x boss.x :y boss.y
+     :width 8 :height 24
+     :type :projectile
+     :animator (make-animator boss-strike-animation)
+     :remove (fn [self]
+               (worlds.remove self))
+     :update (fn [self]
+               (let [dir boss.direction
+                     offset (if (= dir :left) -8 16)]
+                 (update-animation! self.animator)
+                 (set self.x (+ offset boss.x))
+                 (set self.y boss.y)))
+     :render (fn [self]
+               (let [dir boss.direction
+                     animator self.animator
+                     [frames w h] animator.animation
+                     frame-id (animator-frame-id animator)]
+                 (spr frame-id self.x self.y 0 1 (if (= dir :left) 1 0) 0 w h)))})
 
  {: make-shield-projectile : make-slash : make-phase-3-projectile
   : make-strike : make-fire}
@@ -1108,7 +1117,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase3))
+  {:init (fn [] (set current-phase :phase4))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
@@ -1248,12 +1257,16 @@
 ;; 038:0000000000000000111111001000010010000100111111001000010010000100
 ;; 039:0001000001111111000000010011111100000001011111110001000100001001
 ;; 040:0001000011111100000000001111100000000000111111000001000000100000
+;; 041:b0000000bb0000000bb000000bbb00000b0b80000b0bb8000b0b0b800b0b00b8
+;; 042:b0000000bb000000bbb00000b0bb0000b0bbb000b0b0b800b0b0bb80b0b0b0b8
 ;; 048:8088800080800000808000008080000080000000800000008000000080000000
 ;; 051:1010000010000000100000000000000000000000000000000000000000000000
 ;; 053:0001111100000000001111110000000100000011000001100011110000000000
 ;; 054:1111110010000000111111101000001000000010000001100011110000000000
 ;; 055:1111111100000000011111110100000001000000011111110100000000000000
 ;; 056:1111111000000000111111000000010000000100111111000000010000000000
+;; 057:0b0b00b80b0b0b800b0bb8000b0b80000bbb00000bb00000bb000000b0000000
+;; 058:b0b0b0b8b0b0bb80b0b0b800b0bbb000b0bb0000bbb00000bb000000b0000000
 ;; </SPRITES>
 
 ;; <WAVES>
