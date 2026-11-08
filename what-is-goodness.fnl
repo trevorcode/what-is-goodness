@@ -809,8 +809,9 @@
                  })
 
   (fn draw-bubble [x y]
-    (rect x y 24 8 7)
-    (print ". . ." x y 1))
+    (rect x y 24 8 8)
+    (rectb x y 24 8 1)
+    (print ". . ." (+ x 4) y 1))
 
   (fn make-dialogue-scene [phase close-fn]
     (var current-line 1)
@@ -828,8 +829,12 @@
                  (if (= speaker :player)
                      (draw-bubble 40 90)
                      (draw-bubble 200 80))
-                 (rect 0 0 240 30 7)
-                 (print (string.sub text 0 current-char) 0 0 1)))})
+                 (rect 10 10 220 40 8)
+                 (rectb 10 10 220 40 1)
+                 (with-color 1
+                   (spr 288 10 10 0 1 0 0 2 2)
+                   (spr 288 214 34 0 1 0 2 2 2))
+                 (print (string.sub text 0 current-char) 24 24 1)))})
 
   {: make-dialogue-scene})
 
