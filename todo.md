@@ -10,14 +10,14 @@
 
 ## Boss movement
 Each ability should be a "strategy" or function/coroutine. 
-[] Phase 1-6 abililties
-[] Boss hp
+[x] Phase 1-6 abililties
+[x] Boss hp
 
 ## Art... lots of it:
-[] Player Art
-[] Boss art
-[] Main Menu art (not MVP)
-[] background art (sorta MVP)
+[x] Player Art
+[x] Boss art
+[x] Main Menu art (not MVP)
+[x] background art (sorta MVP)
 
 ## Narrative
 [] A good narrative reason why execution/justice is valid, but that mercy could potentially be valid (depending on the players ultimate choice)
@@ -30,9 +30,9 @@ Each ability should be a "strategy" or function/coroutine.
 
 # Stretch goals
 
-[] Image Encoder
+[x] Image Encoder
 [] Particle system
-[] Having a stylized menu/buttons
+[x] Having a stylized menu/buttons
 [] Mouse support for menus
 [] Intro cutscene images
 
