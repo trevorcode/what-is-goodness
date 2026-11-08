@@ -298,8 +298,42 @@
                      frame-id (animator-frame-id animator)]
                  (spr frame-id self.x self.y 0 1 (if (= dir :left) 1 0) 0 w h)))})
 
+  (local blast-charge-animation (make-animation [320 321 322 323] 1 1 2 true))
+  (local blast-attack-animation (make-animation [324 326] 2 2 2 true))
+
+  (fn make-blast [boss]
+    (local speed 5)
+    {:x boss.x :y (+ 6 boss.y)
+     :width 8 :height 16
+     :type :projectile
+     :charging 60
+     :direction boss.direction
+     :animator (make-animator blast-charge-animation)
+     :remove (fn [self]
+               (worlds.remove self))
+     :update (fn [self]
+               (update-animation! self.animator)
+               (when self.charging
+                 (set self.charging (- self.charging 1))
+                 (when (= 0 self.charging)
+                   (set-animation! self.animator blast-attack-animation)
+                   (set self.y (- self.y 6))
+                   (set self.charging nil)))
+               (when (not self.charging)
+                 (set self.x (+ self.x (if (= self.direction :left) (- speed) speed)))))
+     :render (fn [self]
+               (let [animator self.animator
+                     [frames w h] animator.animation
+                     frame-id (animator-frame-id animator)]
+                 (spr frame-id self.x self.y 0 1 (if (= self.direction :left) 1 0) 0 w h))
+               (when (not self.charging)
+                 (let [offset (if (= self.direction :left) 16 -16)]
+                   (spr 328 (+ offset self.x) self.y 0 1 0 0 2 2))
+                 )
+               )})
+
  {: make-shield-projectile : make-slash : make-phase-3-projectile
-  : make-strike : make-fire}
+  : make-strike : make-fire : make-blast}
  )
 
 (module boss
@@ -443,26 +477,22 @@
         (strike:remove)
         ((wait 20) boss)))
 
-    (fn strike-across []
+    (fn blast-across []
       (local r (math.random 2))
       (set boss.x (if (= r 1) 216 0))
       (local target-x (if (= r 1) 0 216))
       (set boss.direction
            (if (= r 1) :left :right))
-      ((wait 40) boss)
-      (let [cur-x boss.x
-            strike (projectiles.make-strike boss)]
-        (worlds.add boss.world strike)
-        (for [i 1 50]
-          (set boss.x (lerp cur-x target-x (ease-in (/ i 50))))
-          (coroutine.yield))
-        (strike:remove)
-        ((wait 20) boss)
-        (set boss.direction :left)))
+      (local blast (projectiles.make-blast boss))
+      (worlds.add boss.world blast)
+      (for [i 1 120]
+        (coroutine.yield))
+      (blast:remove)
+      (set boss.direction :left))
 
     (for [i 1 6]
       (if (= 1 (math.random 2))
-          (strike-across)
+          (blast-across)
           (strike-down))
       )
     (set boss.x start-x)
@@ -515,11 +545,12 @@
     ((wait 30) boss))
 
   (fn ability-list [phase tutorial?]
-    (local phase-abilities [shield
-                            attack-string
-                            phase-3-attack
-                            phase-4-attack
-                            phase-5-attack
+    (local phase-abilities [
+                            ;; shield
+                            ;; attack-string
+                            ;; phase-3-attack
+                            ;; phase-4-attack
+                            ;; phase-5-attack
                             phase-6-attack])
 
     (local abilities [fw-bw-move! wait-30-frames])
@@ -1121,7 +1152,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase4))
+  {:init (fn [] (set current-phase :phase6))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
@@ -1271,6 +1302,22 @@
 ;; 056:1111111000000000111111000000010000000100111111000000010000000000
 ;; 057:0b0b00b80b0b0b800b0bb8000b0b80000bbb00000bb00000bb000000b0000000
 ;; 058:b0b0b0b8b0b0bb80b0b0b800b0bbb000b0bb0000bbb00000bb000000b0000000
+;; 064:0000000000009000000980000098890000089000000009000000000000000000
+;; 065:0000000000000090080980000098890000088009009909000000000000000000
+;; 066:0000000000000000000900000098890000988900000900000000000000000000
+;; 067:8000090000900000000990900908800000088000009090000800009000000000
+;; 068:0000000000000000090000000090090090009999000998889999889888888888
+;; 069:0000000000000000000000000000000090000000899000008899000088890000
+;; 070:0000900000000000000000000900009900009988000998889999888988888888
+;; 071:0000000000000000000000009000000089900000889000008889000089890000
+;; 072:0000000000000000000000000000000000000000000000009999999988888888
+;; 073:0000000000000000000000000000000000000000000000009999999988888888
+;; 084:8988988988888898999988880009889890909999000000000099009090000000
+;; 085:8989000088990000889000008900000090000000000000000000000000000000
+;; 086:8898898888888888999988890009888800009999000000009000900000000000
+;; 087:8889000088990000889000009890000099000000000000000000000000000000
+;; 088:8888888888888888999999990000000000000000000000000000000000000000
+;; 089:8888888888888888999999990000000000000000000000000000000000000000
 ;; </SPRITES>
 
 ;; <WAVES>
