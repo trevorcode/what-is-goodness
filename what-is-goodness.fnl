@@ -1027,6 +1027,18 @@
 
   (var started? false)
 
+  (fn render-phase-progress [phase]
+    (let [number (phase->number phase)
+          start-x 60
+          start-y 10]
+      (for [i 1 6]
+        (rect (+ start-x (* i 14)) start-y 10 10 4)
+        (when (<= i number)
+          (rect (+ start-x (* i 14)) start-y 10 10 (- 15 i)))
+        (rectb (+ start-x (* i 14)) start-y 10 10 1)
+        (when (not= i 6)
+          (rect (+ start-x 10 (* i 14)) (+ 4 start-y) 4 2 1)))))
+
   {:input (fn []
             (player-module.player-input started? player))
    :init (fn []
@@ -1045,6 +1057,7 @@
              (each [_ e (ipairs world.entities)]
                (e:render))
              (render-health player.health)   
+             (render-phase-progress current-phase)
              )}
   )
 
