@@ -850,9 +850,7 @@
       (when (btnp 4)
         (attack! player))
       (when (btnp 5)
-        (if (btn 2)
-            (dodge-roll! player :left)
-            (dodge-roll! player :right)))))
+        (dodge-roll! player player.direction))))
 
   (fn make-player []
     {:x -30 :y 110 :hp 3 :vx 0 :vy 0
@@ -1185,7 +1183,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase4))
+  {:init (fn [] (set current-phase :phase1))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
