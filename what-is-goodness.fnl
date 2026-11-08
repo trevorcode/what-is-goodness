@@ -573,11 +573,13 @@
     (set current-routine
          (coroutine.create
           (fn [player]
+            (set player.state :running)
             (while (not (< (- x 2) player.x (+ x 2)))
               (let [dir (if (< player.x x) :right :left)]
                 (set player.x (+ player.x (* speed (if (= dir :right) 1 -1))))
                 (coroutine.yield)))
             (set current-routine nil)
+            (set player.state :idle)
             (f)))))
 
   (fn damage [player]
@@ -867,6 +869,106 @@
                (circ (* i 9) 5 3 1))
              )})
 
+(fn make-justice-scene []
+  (local player (player-module.make-player))
+  (local world {:entities []
+                :player player})
+  (worlds.add world player)
+
+  (var show-prompt? false)
+  (var option :execute)
+  (var fin-sequence false)
+  (var flash-white? false)
+  (var show-credits? false)
+
+  (fn toggle-option! []
+    (if (= option :execute)
+        (set option :spare)
+        (set option :execute)))
+
+  {:input (fn []
+            (when (and show-credits? (btnp 4))
+              (scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene)))
+
+              )
+            (when show-prompt?
+              (when (or (btnp 0) (btnp 1) (btnp 2) (btnp 3))
+                (toggle-option!))
+              (when (btn 4)
+                (set show-prompt? false)
+                (set fin-sequence
+                     (coroutine.create
+                      (if (= option :spare)
+                          (fn []
+                            (player-module.cutscene-move! 300)
+                            (for [i 1 240] (coroutine.yield))
+                            (for [i 1 7]
+                                (set flash-white? (not flash-white?))
+                                (coroutine.yield))
+                            (for [i 1 120] (coroutine.yield))
+                            (set show-credits? true))
+
+                          (fn []
+                            (let [player-y player.y
+                                  player-x player.x]
+                              (for [i 1 120]
+                                (set player.y (lerp player-y (- player-y 5) (ease-in-out (/ i 120))))
+                                (set player.x (lerp player-x (- player-x 3) (ease-in-out (/ i 120))))
+                                (coroutine.yield))
+                              (set player.state :attacking)
+                              (set player.attack-timer 30)
+                              (for [i 1 8]
+                                (coroutine.yield))
+                              (for [i 1 7]
+                                (set flash-white? (not flash-white?))
+                                (coroutine.yield)))
+                            (for [i 1 120] (coroutine.yield))
+                            (set show-credits? true))))))))
+   :init (fn []
+           (player-module.cutscene-move! 110
+            (fn [] (set show-prompt? true))))
+   :update (fn []
+             (each [_ e (ipairs world.entities)]
+               (e:update))
+             (when fin-sequence
+               (coroutine.resume fin-sequence))
+             )
+   :render (fn []
+             (cls 5)
+             (memcpy 0 bg-no-pole-start-address 16320)
+             (each [_ e (ipairs world.entities)]
+               (e:render))
+             (when flash-white?
+               (rect 0 0 240 136 (if (= option :execute) 8 1)))
+
+             (when show-credits?
+               (local text-color (if (= option :execute) 1 8))
+               (print "A game by" 75 25 text-color)
+               (print "Trevor S" 75 55 text-color)
+               (print "Eleonor V" 75 65 text-color)
+               (print "Press Z to continue" 75 85 text-color)
+               )
+
+             (when show-prompt?
+               (rect 69 19 82 62 1)
+               (rect 70 20 80 60 8)
+               (print "Take justice?" 75 25 1)
+               (print "Execute" 75 45 1)
+               (print "Spare" 75 55 1)
+
+               (local (x-offset y-offset)
+                      (if (= option :execute)
+                          (values 114 42)
+                          (values 100 52)))
+               
+               (tri (+ 12 x-offset) (+ y-offset 0)
+                    (+ 12 x-offset) (+ y-offset 12)
+                    (+ 6 x-offset) (+ y-offset 6) 1)
+               )
+
+             )}
+  )
+
 (fn make-pre-boss-scene []
   (local player (player-module.make-player))
   (local world {:entities []
@@ -916,7 +1018,7 @@
 
 (fn make-main-menu-scene []
   {:input (fn []
-            (when (btn 4)
+            (when (btnp 4)
               (scenes.push-scene!
                ((. scenes :scene-list :make-transition-screen)
                 (fn [] (scenes.swap-root-scene! ((. scenes :scene-list :make-pre-boss-scene))))))))
@@ -932,9 +1034,10 @@
 (scenes.add-scene! :make-transition-screen make-transition-screen)
 (scenes.add-scene! :make-pre-boss-scene make-pre-boss-scene)
 (scenes.add-scene! :make-boss-scene make-boss-scene)
+(scenes.add-scene! :make-justice-scene make-justice-scene)
 
 
-(scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene)))
+(scenes.set-scene! ((. scenes :scene-list :make-justice-scene)))
 
 (fn _G.BOOT []
   (decode-rle bg)
