@@ -431,9 +431,10 @@
       (set boss.x (lerp start-x (+ start-x 15) (ease-in-out (/ i 50))))
       (coroutine.yield))
 
-    ((wait 80) boss)
+    ((wait 50) boss)
     (set-animation! boss.animator attack-animation)
     (worlds.add boss.world strike)
+    ((wait 30) boss)
     (let [cur-x boss.x]
       (for [i 1 20]
         (set boss.x (lerp cur-x 15 (/ i 20)))
@@ -442,10 +443,11 @@
     (set boss.direction :right)
     (set-animation! boss.animator idle-animation)
     (strike:remove)
-    ((wait 80) boss)
+    ((wait 50) boss)
     (set-animation! boss.animator attack-animation)
     (local strike2 (projectiles.make-strike boss))
     (worlds.add boss.world strike2)
+    ((wait 30) boss)
     (let [cur-x boss.x]
       (for [i 1 20]
         (set boss.x (lerp cur-x start-x (/ i 20)))
@@ -827,7 +829,8 @@
         (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) 8)))
       (if (and player.invulnerable (= 0 (% (// player.invulnerable 5) 2))) 
         nil
-        (spr frame-id player.x player.y 0 1 (if (= player.direction :right) 0 1) 0 w h))
+        (spr frame-id (- player.x 2) (- player.y 1) 0 1 (if (= player.direction :right) 0 1) 0 w h))
+      ;; (rectb player.x player.y 12 14 0) ;; Uncomment this for displaying bounding box
       (when (<= player.health 0)
         (for [c 0 15] (poke4 (+ (* 0x3ff0 2) c) c)))))
 
@@ -855,7 +858,7 @@
     {:x -30 :y 110 :hp 3 :vx 0 :vy 0
      :health 3
      :type :player
-     :width 16 :height 16
+     :width 12 :height 14
      :state :idle
      :direction :right
      :grounded? false
@@ -1182,7 +1185,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase1))
+  {:init (fn [] (set current-phase :phase4))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
@@ -1191,11 +1194,11 @@
    :update (fn [] true)
    :render (fn []
              (cls 1)
-             (rectb 16 5 194 40 8)
+             (rectb 16 5 210 40 8)
              (spr 288 16 5 0 1 0 0 2 2)
-             (spr 288 194 29 0 1 0 2 2 2)
-             (print "What is goodness?" 20 20 8 false 2)
-             (print "Play" 40 70 8 false 1)
+             (spr 288 210 29 0 1 0 2 2 2)
+             (print "What is goodness?" 27 20 8 false 2)
+             (print "Play" 70 70 8 false 1)
              (tri 32 66 32 78 38 72 8))})
 
 (scenes.add-scene! :make-dialogue-scene dialogue.make-dialogue-scene)
