@@ -829,7 +829,8 @@
                      bg-color (if (= speaker :player) 8 1)
                      fg-color (if (= speaker :player) 1 8)]
                  (if (= speaker :player)
-                     (draw-bubble 40 90)
+                     (when (not= phase :defeat)
+                       (draw-bubble 40 90))
                      (draw-bubble 200 80))
                  (rect 10 10 220 40 bg-color)
                  (rectb 10 10 220 40 fg-color)
