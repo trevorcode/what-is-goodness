@@ -1042,9 +1042,7 @@
 
   {:input (fn []
             (when (and show-credits? (btnp 4))
-              (scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene)))
-
-              )
+              (scenes.set-scene! ((. scenes :scene-list :make-main-menu-scene))))
             (when show-prompt?
               (when (or (btnp 0) (btnp 1) (btnp 2) (btnp 3))
                 (toggle-option!))
@@ -1105,16 +1103,20 @@
                )
 
              (when show-prompt?
-               (rect 69 19 82 62 1)
-               (rect 70 20 80 60 8)
-               (print "Take justice?" 75 25 1)
-               (print "Execute" 75 45 1)
-               (print "Spare" 75 55 1)
+               
+               (rect 59 19 102 62 1)
+               (rect 60 20 100 60 8)
+               (with-color 1 
+                 (spr 288 59 19 0 1 0 0 2 2)
+                 (spr 288 145 65 0 1 0 2 2 2))
+               (print "take justice?" 75 30 1)
+               (print "execute" 75 50 1)
+               (print "spare" 75 60 1)
 
                (local (x-offset y-offset)
                       (if (= option :execute)
-                          (values 114 42)
-                          (values 100 52)))
+                          (values 114 47)
+                          (values 100 57)))
                
                (tri (+ 12 x-offset) (+ y-offset 0)
                     (+ 12 x-offset) (+ y-offset 12)
