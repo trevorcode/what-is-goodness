@@ -1215,12 +1215,12 @@
    :update (fn [] true)
    :render (fn []
              (cls 1)
-             (rectb 16 5 210 40 8)
-             (spr 288 16 5 0 1 0 0 2 2)
-             (spr 288 210 29 0 1 0 2 2 2)
-             (print "What is goodness?" 27 20 8 false 2)
-             (print "Play" 70 70 8 false 1)
-             (tri 32 66 32 78 38 72 8))})
+             (rectb 16 20 210 40 8)
+             (spr 288 16 20 0 1 0 0 2 2)
+             (spr 288 210 44 0 1 0 2 2 2)
+             (print "What is goodness?" 27 35 8 false 2)
+             (print "PLAY" 70 95 8 false 1)
+             (tri 42 91 42 103 48 97 8))})
 
 (scenes.add-scene! :make-dialogue-scene dialogue.make-dialogue-scene)
 (scenes.add-scene! :make-main-menu-scene make-main-menu-scene)
@@ -1405,6 +1405,6 @@
 ;; </TRACKS>
 
 ;; <PALETTE>
-;; 000:1aeaf2000000333333555555777777999999bbbbbbddddddffffffc63430ce8d28dada302c9d2c2069c2891cbe753c57
+;; 000:080808000000333333555555777777999999bbbbbbddddddffffffc63430ce8d28dada302c9d2c2069c2891cbe753c57
 ;; </PALETTE>
 
