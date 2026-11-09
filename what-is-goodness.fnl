@@ -586,7 +586,8 @@
                             phase-3-attack
                             phase-4-attack
                             phase-5-attack
-                            phase-6-attack])
+                            phase-6-attack
+                            ])
 
     (local abilities [fw-bw-move! wait-30-frames])
 
@@ -879,47 +880,51 @@
 
 (module dialogue
   (local script {:phase1
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is patience..."]]
+                 [[:player "I have come for justice."]
+                  [:player "Get out of the way!"]
+                  [:boss "Rushing ahead is foolish."]
+                  [:player "I said-"]
+                  [:boss "Learn... patience"]]
                  :phase1-win
-                 [[:boss "YOU WIN... PERFECT"]]
+                  [[:boss "Good. You must develop faith"]
+                   [:boss "Patience without faith \nis suffering"]
+                   [:player "What is faith?..."]]
                  :phase2
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is faith..."]]
+                  [[:boss "Will your justice bring \nbrighter days?"]]
                  :phase2-win
-                 [[:boss "Well done"]]
+                  [[:player "I will have my justice"]
+                   [:player "I believe it"]
+                   [:player "I can wait for it"]
+                   [:boss "Don't make these \ndecisions blindly,"]
+                   [:boss "belief without knowledge is \ndogma"]
+                   [:player "What is knowledge?..."]]
                  :phase3
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is knowledge..."]]
+                  [[:boss "What crimes deserve retribution?"]
+                   [:player "..."]]
                  :phase3-win
-                 [[:boss "Well done"]]
+                  [[:player "Under the law, my cause is just"]
+                   [:boss "So it is"]
+                   [:boss "It may be just, but is it wise?"]
+                   [:player "What is wisdom?..."]]
                  :phase4
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is mercy..."]]
+                  [[:boss "Will your justice bring you peace?"]
+                   [:player "Can I live with injustice?"]]
                  :phase4-win
-                 [[:boss "Nice Job"]]
+                  [[:player "There must be a resolution"]
+                   [:boss "Does that resolution \ninclude compassion?"]
+                   [:player "What is compassion?"]]
                  :phase5
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is wisdom..."]]
-                 :phase5-win
-                 [[:boss "Sweet"]]
+                  [[:player "They haven't apologized yet"] 
+                   [:boss "Is reconcilliation required \nfor compassion?"]]
+                  :phase5-win
+                 [[:boss "One last question"]
+                  [:boss "Is your justice good?"]
+                  [:player "What is goodness?..."]]
                  :phase6
-                 [[:player "Do you know the way?"]
-                  [:boss "I do not know the way"]
-                  [:boss "Teh way"]
-                  [:player "What is goodness..."]]
+                 [[:player "..."]
+                  [:boss "..."]]
                  :phase6-win
-                 [[:boss "Go, and take your justice"]]
+                 [[:boss "Go, and claim your justice"]]
                  :defeat
                  [[:player "... !"]
                   [:player "I must learn more..."]]
@@ -956,10 +961,10 @@
                    (spr 288 214 34 0 1 0 2 2 2)
                    (if (= speaker :player)
                        (spr 293 20 20 0 1 0 0 2 2)
-                       (spr 295 200 20 0 1 0 0 2 2)))
+                       (spr 295 205 20 0 1 0 0 2 2)))
                  (let [(x y) (if (= speaker :player)
                                  (values 48 26)
-                                 (values 24 26))]
+                                 (values 20 26))]
                    (print (string.sub text 0 current-char) x y fg-color))))})
 
   {: make-dialogue-scene})
@@ -1095,8 +1100,8 @@
                (local text-color (if (= option :execute) 1 8))
                (print "A game by" 75 25 text-color)
                (print "Trevor S" 75 55 text-color)
-               (print "Eleonor V" 75 65 text-color)
-               (print "Press Z to continue" 75 85 text-color)
+               (print "Eleonor V. R." 75 65 text-color)
+               (print "Press Z to continue" 75 95 text-color)
                )
 
              (when show-prompt?
@@ -1199,7 +1204,7 @@
              )})
 
 (fn make-main-menu-scene []
-  {:init (fn [] (set current-phase :phase6))
+  {:init (fn [] (set current-phase :phase1))
    :input (fn []
             (when (btnp 4)
               (scenes.push-scene!
